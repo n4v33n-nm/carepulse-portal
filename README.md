@@ -29,6 +29,7 @@ Designed to reflect real-world healthcare SaaS standards, CarePulse features a d
    * [Caregiver Proxy Access](#9-caregiver-proxy-access)
    * [In-App Notification System](#10-notification-system)
    * [Security & Immutable Audit Trail](#11-security--audit-logging)
+   * [Emergency Doctor Allocation & Daily Duty Roster](#12-emergency-doctor-allocation--daily-duty-roster)
 5. [Technology Stack](#-technology-stack)
 6. [System Architecture](#-system-architecture)
 7. [Database Architecture](#-database-architecture)
@@ -137,6 +138,20 @@ In conventional healthcare portals, patient engagement is frequently fragmented 
 * **Role-Based Access Control (RBAC):** Strict controller-level authorization (`@PreAuthorize`) enforcing `PATIENT`, `DOCTOR`, and `ADMIN` boundaries.
 * **HIPAA-Ready Audit Trail:** Immutable system logs capturing user email, timestamp, IP address, target entity, and exact system action.
 
+### 12. Emergency Doctor Allocation & Daily Duty Roster
+* **Daily Dynamic Roster:** Physicians are assigned to emergency duty on a day-by-day basis by administrators across defined shifts (`MORNING`, `EVENING`, `NIGHT`, or `CUSTOM`). No physician is permanently hardcoded.
+* **Single-Click Patient Emergency Triage:** Emergency patients do not browse directories or wait for appointment slots. Clicking **Emergency Assistance** immediately invokes the allocation engine.
+* **Deterministic 5-Step Allocation Algorithm:**
+  1. Identifies the active calendar date and shift window (including cross-midnight shifts spanning `20:00 - 08:00`).
+  2. Queries active emergency duty physicians.
+  3. Filters candidates to ensure real-time status is `AVAILABLE` (excluding `BUSY`, `IN_CONSULTATION`, `OFF_DUTY`, and `ON_LEAVE`).
+  4. Prioritizes matching medical specialization (e.g. Cardiology, Neurology, Orthopedics, Pediatrics, General Medicine).
+  5. Selects the physician with the lowest active emergency caseload, breaking ties deterministically by earliest availability.
+* **Pessimistic Concurrency & Collision Lock:** Utilizes JPA `@Lock(LockModeType.PESSIMISTIC_WRITE)` (`SELECT FOR UPDATE`) on the candidate physician's roster record inside an atomic `@Transactional` boundary, preventing race conditions and simultaneous double-allocation.
+* **Graceful Fallback (`NO_DOCTOR_AVAILABLE`):** If no on-duty physician is available, the system immediately returns a non-blocking warning directing the patient to emergency helplines (911 / 112).
+* **Physician Command Center:** On-duty doctors can view assigned emergency cases in real-time, toggle their clinical availability status, and transition case status (`IN_PROGRESS`, `COMPLETED`).
+* **Admin Roster Governance:** Full calendar roster management to schedule, edit, or remove physicians from emergency duty, and review dispatch logs.
+
 ---
 
 ## 🛠 Technology Stack
@@ -192,7 +207,7 @@ For complete technical diagrams and layer breakdowns, see [docs/ARCHITECTURE.md]
 
 ## 🗄 Database Architecture
 
-The relational schema is normalized into 10 structured tables with foreign key cascades, unique constraints, and B-tree indexes:
+The relational schema is normalized into 12 structured tables with foreign key cascades, unique constraints, and B-tree indexes:
 
 ```mermaid
 erDiagram
@@ -201,6 +216,9 @@ erDiagram
     USERS ||--o{ NOTIFICATIONS : "receives"
     USERS ||--o{ AUDIT_LOGS : "triggers"
     DOCTORS ||--o{ DOCTOR_AVAILABILITY : "defines"
+    DOCTORS ||--o{ EMERGENCY_DOCTOR_ROSTER : "scheduled on"
+    PATIENTS ||--o{ EMERGENCY_REQUESTS : "requests"
+    DOCTORS ||--o{ EMERGENCY_REQUESTS : "assigned to"
     PATIENTS ||--o{ APPOINTMENTS : "books"
     DOCTORS ||--o{ APPOINTMENTS : "hosts"
     PATIENTS ||--o{ MEDICAL_RECORDS : "owns"
@@ -216,7 +234,7 @@ For table definitions, indexing strategies, and migration scripts, see [database
 
 ## 📡 API Overview
 
-CarePulse provides RESTful endpoints organized across 9 controllers:
+CarePulse provides RESTful endpoints organized across 11 controllers:
 
 | Module | Base Path | Key Methods & Actions |
 | :--- | :--- | :--- |
@@ -225,10 +243,12 @@ CarePulse provides RESTful endpoints organized across 9 controllers:
 | **Appointments** | `/api/appointments` | `POST /`, `GET /my`, `GET /{id}`, `PUT /{id}/status`, `DELETE /{id}` |
 | **Medical Records** | `/api/records` | `GET /my`, `POST /`, `GET /patient/{id}` |
 | **Prescriptions** | `/api/prescriptions` | `GET /my`, `POST /`, `GET /patient/{id}` |
+| **Emergency Requests** | `/api/emergency-requests` | `POST /` (Triage & allocate), `GET /my`, `GET /assigned`, `PATCH /{id}/status` |
+| **Emergency Roster** | `/api/emergency-roster` | `GET /my-duty`, `PUT /my-status`, `GET /active-shifts` |
 | **Caregivers** | `/api/caregivers` | `POST /`, `GET /my`, `GET /accessible-patients`, `DELETE /{id}` |
 | **Notifications** | `/api/notifications` | `GET /`, `GET /unread-count`, `PUT /{id}/read`, `PUT /read-all` |
 | **AI Companion** | `/api/ai` | `POST /chat`, `GET /disclaimer` |
-| **Administration** | `/api/admin` | `GET /dashboard`, `GET /users`, `PUT /users/{id}/toggle-status`, `GET /audit-logs` |
+| **Administration** | `/api/admin` | `GET /dashboard`, `GET /users`, `GET /emergency-roster`, `POST /emergency-roster`, `GET /audit-logs` |
 
 For complete request/response examples and role requirements, see [docs/API.md](docs/API.md).
 

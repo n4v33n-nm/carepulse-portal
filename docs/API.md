@@ -521,3 +521,206 @@ Retrieves immutable system audit records.
   }
 ]
 ```
+
+---
+
+## 10. Emergency Doctor Allocation & Daily Duty Roster
+
+### `POST /api/emergency-requests`
+Creates an immediate emergency request and triggers the deterministic allocation algorithm with pessimistic locking.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`
+* **Request Example:**
+```json
+{
+  "category": "Cardiology",
+  "reason": "Severe acute chest pain and shortness of breath"
+}
+```
+* **Response Example (200 OK - Doctor Assigned):**
+```json
+{
+  "id": 1,
+  "patientId": 1,
+  "patientName": "John Doe",
+  "patientPhone": "+1 (555) 234-5678",
+  "doctorId": 1,
+  "doctorName": "Dr. Sarah Jenkins",
+  "doctorSpecialization": "Cardiology",
+  "doctorPhone": "+1 (555) 010-2030",
+  "requestTime": "2026-09-27T10:15:00",
+  "assignedTime": "2026-09-27T10:15:01",
+  "status": "ASSIGNED",
+  "priority": "EMERGENCY",
+  "category": "Cardiology",
+  "reason": "Severe acute chest pain and shortness of breath",
+  "doctorNotes": null,
+  "emergencyWarning": "Emergency request assigned to Dr. Sarah Jenkins. If this is an immediate life-threatening emergency, call local emergency services (e.g. 911 / 112) immediately."
+}
+```
+* **Response Example (200 OK - No Doctor Available):**
+```json
+{
+  "id": 2,
+  "status": "NO_DOCTOR_AVAILABLE",
+  "priority": "EMERGENCY",
+  "category": "General",
+  "emergencyWarning": "CRITICAL NOTICE: No emergency-duty doctor is currently available. If you or the patient are facing an immediate life-threatening situation, please call your local emergency phone number (e.g. 911 / 112) or proceed to the nearest emergency room immediately."
+}
+```
+
+---
+
+### `GET /api/emergency-requests/my`
+Retrieves all emergency requests submitted by the currently authenticated patient.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "doctorName": "Dr. Sarah Jenkins",
+    "doctorSpecialization": "Cardiology",
+    "status": "COMPLETED",
+    "priority": "EMERGENCY",
+    "category": "Cardiology",
+    "requestTime": "2026-09-27T10:15:00"
+  }
+]
+```
+
+---
+
+### `GET /api/emergency-requests/assigned`
+Retrieves active and assigned emergency cases for the currently authenticated physician.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "patientName": "John Doe",
+    "patientPhone": "+1 (555) 234-5678",
+    "category": "Cardiology",
+    "reason": "Severe acute chest pain and shortness of breath",
+    "status": "IN_PROGRESS",
+    "requestTime": "2026-09-27T10:15:00"
+  }
+]
+```
+
+---
+
+### `PATCH /api/emergency-requests/{id}/status`
+Updates the status of an assigned emergency case (e.g. to `IN_PROGRESS` or `COMPLETED`).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`, `ADMIN`
+* **Request Example:**
+```json
+{
+  "status": "COMPLETED",
+  "doctorNotes": "Patient assessed in ER Bay 2, vitals stabilized, sublingual nitroglycerin administered."
+}
+```
+
+---
+
+### `GET /api/emergency-roster/my-duty`
+Checks the emergency roster duty and shift status for the authenticated doctor.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "rosterDate": "2026-09-27",
+    "shiftName": "MORNING",
+    "shiftStart": "08:00:00",
+    "shiftEnd": "14:00:00",
+    "dutyStatus": "EMERGENCY_DUTY",
+    "doctorAvailabilityStatus": "AVAILABLE",
+    "activeEmergencyCasesCount": 0
+  }
+]
+```
+
+---
+
+### `PUT /api/emergency-roster/my-status`
+Allows an authenticated physician to update their real-time availability status (`AVAILABLE`, `BUSY`, `IN_CONSULTATION`, `OFF_DUTY`, `ON_LEAVE`).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`
+* **Request Example:**
+```json
+{
+  "availabilityStatus": "IN_CONSULTATION"
+}
+```
+
+---
+
+### `GET /api/admin/emergency-roster`
+Retrieves daily emergency duty roster with doctor availability and active workload. Supports `?date=YYYY-MM-DD` query parameter.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "doctorId": 1,
+    "doctorName": "Dr. Sarah Jenkins",
+    "doctorSpecialization": "Cardiology",
+    "rosterDate": "2026-09-27",
+    "shiftName": "MORNING",
+    "shiftStart": "08:00:00",
+    "shiftEnd": "14:00:00",
+    "dutyStatus": "EMERGENCY_DUTY",
+    "doctorAvailabilityStatus": "AVAILABLE",
+    "activeEmergencyCasesCount": 0
+  }
+]
+```
+
+---
+
+### `POST /api/admin/emergency-roster`
+Assigns a licensed physician to emergency duty for a specific date and shift. Enforces collision prevention against duplicate overlapping shifts.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Request Example:**
+```json
+{
+  "doctorId": 2,
+  "rosterDate": "2026-09-27",
+  "shiftName": "EVENING",
+  "shiftStart": "14:00",
+  "shiftEnd": "20:00",
+  "dutyStatus": "EMERGENCY_DUTY",
+  "doctorAvailabilityStatus": "AVAILABLE"
+}
+```
+
+---
+
+### `PUT /api/admin/emergency-roster/{id}`
+Updates an emergency duty roster assignment.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+
+---
+
+### `DELETE /api/admin/emergency-roster/{id}`
+Removes a doctor from emergency duty for that roster date.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+
+---
+
+### `GET /api/admin/emergency-roster/stats`
+Retrieves daily emergency triage request status counts (`WAITING`, `ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `NO_DOCTOR_AVAILABLE`).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`

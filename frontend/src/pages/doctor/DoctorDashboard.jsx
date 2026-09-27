@@ -12,30 +12,87 @@ import {
   Activity,
   Check,
   X,
+  Siren,
+  ShieldCheck,
+  HeartPulse,
+  Stethoscope,
+  Phone,
 } from 'lucide-react';
-import { appointmentService, doctorService } from '../../services/api';
+import { appointmentService, doctorService, emergencyService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
+  const [emergencyDuties, setEmergencyDuties] = useState([]);
+  const [assignedEmergencies, setAssignedEmergencies] = useState([]);
+  const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('AVAILABLE');
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(null);
+  const [emergencyActionLoading, setEmergencyActionLoading] = useState(null);
+  const [completionNotes, setCompletionNotes] = useState({});
+  const [completingId, setCompletingId] = useState(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchAppointments();
+    fetchDashboardData();
   }, []);
 
-  const fetchAppointments = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const res = await appointmentService.getMyAppointments();
-      setAppointments(res.data || []);
+      const [apptRes, dutyRes, emergRes] = await Promise.all([
+        appointmentService.getMyAppointments(),
+        emergencyService.getMyEmergencyDuty().catch(() => ({ data: [] })),
+        emergencyService.getAssignedEmergencyRequests().catch(() => ({ data: [] })),
+      ]);
+      setAppointments(apptRes.data || []);
+      const duties = dutyRes.data || [];
+      setEmergencyDuties(duties);
+      if (duties.length > 0 && duties[0].doctorAvailabilityStatus) {
+        setMyAvailabilityStatus(duties[0].doctorAvailabilityStatus);
+      }
+      setAssignedEmergencies(emergRes.data || []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load doctor dashboard data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQuickStatus = async (apptId, status) => {
+    setStatusUpdating(apptId);
+    try {
+      await appointmentService.updateStatus(apptId, { status });
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update appointment status');
+    } finally {
+      setStatusUpdating(null);
+    }
+  };
+
+  const handleUpdateAvailability = async (newStatus) => {
+    try {
+      await emergencyService.updateMyDoctorStatus({ availabilityStatus: newStatus });
+      setMyAvailabilityStatus(newStatus);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update status');
+    }
+  };
+
+  const handleUpdateEmergencyStatus = async (reqId, newStatus) => {
+    setEmergencyActionLoading(reqId);
+    try {
+      const notes = completionNotes[reqId] || '';
+      await emergencyService.updateEmergencyStatus(reqId, { status: newStatus, doctorNotes: notes });
+      setCompletingId(null);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update emergency case status');
+    } finally {
+      setEmergencyActionLoading(null);
     }
   };
 
@@ -46,18 +103,6 @@ const DoctorDashboard = () => {
 
   // Unique patient count
   const patientIds = new Set(appointments.map((a) => a.patient.id));
-
-  const handleQuickStatus = async (apptId, status) => {
-    setStatusUpdating(apptId);
-    try {
-      await appointmentService.updateStatus(apptId, { status });
-      fetchAppointments();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update appointment status');
-    } finally {
-      setStatusUpdating(null);
-    }
-  };
 
   return (
     <div>
@@ -95,6 +140,169 @@ const DoctorDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Emergency Duty Roster & Real-time Physician Availability */}
+      <div className="card" style={{ marginBottom: '28px', borderLeft: emergencyDuties.length > 0 ? '5px solid #e11d48' : '5px solid var(--slate-300)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: emergencyDuties.length > 0 ? '#ffe4e6' : 'var(--slate-100)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: emergencyDuties.length > 0 ? '#e11d48' : 'var(--slate-500)',
+              }}
+            >
+              <Siren size={22} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.2rem', margin: 0 }}>
+                  Today's Emergency Duty
+                </h3>
+                {emergencyDuties.length > 0 ? (
+                  <span className="badge badge-emergency">EMERGENCY DUTY: YES</span>
+                ) : (
+                  <span className="badge badge-off-duty">EMERGENCY DUTY: NO</span>
+                )}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginTop: '4px' }}>
+                {emergencyDuties.length > 0 ? (
+                  <span>
+                    <strong>Assigned Shift:</strong> {emergencyDuties.map(d => `${d.shiftName} (${d.shiftStart?.slice(0, 5)} - ${d.shiftEnd?.slice(0, 5)})`).join(', ')}
+                  </span>
+                ) : (
+                  <span>No emergency shift rostered for today by Administration.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Doctor Current Availability Status Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)' }}>
+              Current Status:
+            </span>
+            <select
+              className="form-control form-control-sm"
+              style={{ width: '170px', fontWeight: 600 }}
+              value={myAvailabilityStatus}
+              onChange={(e) => handleUpdateAvailability(e.target.value)}
+            >
+              <option value="AVAILABLE">AVAILABLE</option>
+              <option value="BUSY">BUSY</option>
+              <option value="IN_CONSULTATION">IN_CONSULTATION</option>
+              <option value="OFF_DUTY">OFF_DUTY</option>
+              <option value="ON_LEAVE">ON_LEAVE</option>
+            </select>
+            <span className={`badge badge-${myAvailabilityStatus.toLowerCase()}`}>
+              {myAvailabilityStatus}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Assigned Emergency Cases Queue */}
+      {assignedEmergencies.length > 0 && (
+        <div className="card" style={{ marginBottom: '28px', borderLeft: '5px solid #e11d48' }}>
+          <div className="card-header">
+            <span className="card-title">
+              <Siren size={20} style={{ color: '#e11d48' }} /> Assigned Emergency Cases ({assignedEmergencies.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').length} Active)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {assignedEmergencies.map((req) => (
+              <div
+                key={req.id}
+                style={{
+                  background: req.status === 'ASSIGNED' ? '#fff1f2' : 'var(--slate-50)',
+                  border: req.status === 'ASSIGNED' ? '1px solid #fecdd3' : '1px solid var(--slate-200)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px 20px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '10px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--slate-900)' }}>
+                        {req.patientName}
+                      </span>
+                      <span className="badge badge-emergency">{req.category || 'General'}</span>
+                      <span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)', marginTop: '4px' }}>
+                      <strong>Contact:</strong> {req.patientPhone || 'N/A'} • <strong>Blood:</strong> {req.patientBloodGroup || 'N/A'} • <strong>Emergency Contact:</strong> {req.emergencyContact || 'N/A'}
+                    </div>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--slate-500)', marginTop: '2px' }}>
+                      <strong>Time:</strong> {new Date(req.requestTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <strong>Symptoms:</strong> {req.description || 'Emergency assistance requested'}
+                    </div>
+                  </div>
+
+                  {/* Actions for Assigned Emergency Case */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {req.status === 'ASSIGNED' && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleUpdateEmergencyStatus(req.id, 'IN_PROGRESS')}
+                        disabled={emergencyActionLoading === req.id}
+                      >
+                        <HeartPulse size={14} /> Start Consultation
+                      </button>
+                    )}
+
+                    {req.status === 'IN_PROGRESS' && completingId !== req.id && (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        style={{ background: '#10b981', color: 'white' }}
+                        onClick={() => setCompletingId(req.id)}
+                      >
+                        <Check size={14} /> Complete Case
+                      </button>
+                    )}
+
+                    {completingId === req.id && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '260px' }}>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Clinical summary / notes..."
+                          value={completionNotes[req.id] || ''}
+                          onChange={(e) => setCompletionNotes({ ...completionNotes, [req.id]: e.target.value })}
+                        />
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            style={{ background: '#10b981' }}
+                            onClick={() => handleUpdateEmergencyStatus(req.id, 'COMPLETED')}
+                            disabled={emergencyActionLoading === req.id}
+                          >
+                            Confirm Complete
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => setCompletingId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="stats-grid">

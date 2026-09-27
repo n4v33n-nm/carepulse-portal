@@ -10,8 +10,11 @@ import {
   Search,
   CheckCircle2,
   AlertTriangle,
+  Siren,
+  LayoutDashboard,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
+import AdminEmergencyRoster from './AdminEmergencyRoster';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -20,6 +23,7 @@ const AdminDashboard = () => {
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [actionLoading, setActionLoading] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'emergency-roster'
 
   useEffect(() => {
     fetchAdminData();
@@ -65,14 +69,73 @@ const AdminDashboard = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: '28px' }}>
+      <div style={{ marginBottom: '20px' }}>
         <h2 style={{ fontSize: '1.75rem', marginBottom: '6px' }}>System Administrator Dashboard</h2>
         <p style={{ color: 'var(--slate-600)' }}>
-          High-level operational metrics, role governance, and user account provisioning.
+          High-level operational metrics, role governance, and daily emergency physician rosters.
         </p>
       </div>
 
-      {/* KPI Stats Grid */}
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid var(--slate-200)', marginBottom: '24px' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('overview')}
+          style={{ borderRadius: '6px 6px 0 0', borderBottom: 'none', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <LayoutDashboard size={16} /> Platform Governance & Users
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'emergency-roster' ? 'btn-emergency' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('emergency-roster')}
+          style={{ borderRadius: '6px 6px 0 0', borderBottom: 'none', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Siren size={16} /> Emergency Duty Roster & Workload
+        </button>
+      </div>
+
+      {activeTab === 'emergency-roster' ? (
+        <AdminEmergencyRoster />
+      ) : (
+        <>
+          {/* Quick Emergency Banner on Overview */}
+          <div style={{
+            background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+            border: '1px solid #fecdd3',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e11d48', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <Siren size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, color: '#9f1239', fontSize: '0.9375rem' }}>
+                  Emergency Allocation & Duty Roster Engine
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: '#881337' }}>
+                  Manage today's active emergency physicians, configure shifts, and supervise real-time triage requests.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-emergency btn-sm"
+              onClick={() => setActiveTab('emergency-roster')}
+            >
+              Open Duty Roster
+            </button>
+          </div>
+
+          {/* KPI Stats Grid */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon-wrapper stat-icon-primary">
@@ -238,6 +301,8 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

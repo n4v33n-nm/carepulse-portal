@@ -21,6 +21,21 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(EmergencyRequestNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleEmergencyRequestNotFound(EmergencyRequestNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(EmergencyDoctorUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleEmergencyDoctorUnavailable(EmergencyDoctorUnavailableException ex) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidEmergencyRosterException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidEmergencyRoster(InvalidEmergencyRosterException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());

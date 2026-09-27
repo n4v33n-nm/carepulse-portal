@@ -89,6 +89,9 @@ async function run() {
 
     const aiResp = await post('/api/ai/chat', { message: 'I have a mild headache.' }, patientToken);
     console.log('AI Companion & Disclaimer:', aiResp.status === 200 && aiResp.data?.disclaimer ? 'PASS' : 'FAIL');
+
+    const emergencyMy = await get('/api/emergency-requests/my', patientToken);
+    console.log('Patient Emergency Requests:', emergencyMy.status === 200 ? 'PASS' : 'FAIL');
   }
 
   const doctorLogin = await post('/api/auth/login', {
@@ -96,12 +99,28 @@ async function run() {
     password: 'Doctor@123',
   });
   console.log('Doctor Login:', doctorLogin.status === 200 ? 'PASS' : 'FAIL');
+  const doctorToken = doctorLogin.data?.token;
+  if (doctorToken) {
+    const doctorDuty = await get('/api/emergency-roster/my-duty', doctorToken);
+    console.log('Doctor Emergency Duty:', doctorDuty.status === 200 ? 'PASS' : 'FAIL');
+
+    const doctorEmergencies = await get('/api/emergency-requests/assigned', doctorToken);
+    console.log('Doctor Assigned Emergencies:', doctorEmergencies.status === 200 ? 'PASS' : 'FAIL');
+  }
 
   const adminLogin = await post('/api/auth/login', {
     email: 'admin@carepulse.com',
     password: 'Admin@123',
   });
   console.log('Admin Login:', adminLogin.status === 200 ? 'PASS' : 'FAIL');
+  const adminToken = adminLogin.data?.token;
+  if (adminToken) {
+    const adminRoster = await get('/api/admin/emergency-roster', adminToken);
+    console.log('Admin Emergency Roster:', adminRoster.status === 200 ? 'PASS' : 'FAIL');
+
+    const emergencyStats = await get('/api/admin/emergency-roster/stats', adminToken);
+    console.log('Admin Emergency Stats:', emergencyStats.status === 200 ? 'PASS' : 'FAIL');
+  }
 }
 
 run().catch(console.error);

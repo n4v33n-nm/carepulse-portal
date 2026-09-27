@@ -172,3 +172,46 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_email ON audit_logs(user_email);
+
+-- 11. Emergency Doctor Roster Table (Daily Dynamic Duty & Shift Allocation)
+CREATE TABLE IF NOT EXISTS emergency_doctor_roster (
+    id BIGSERIAL PRIMARY KEY,
+    doctor_id BIGINT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    roster_date DATE NOT NULL,
+    shift_name VARCHAR(30) NOT NULL,
+    shift_start TIME WITHOUT TIME ZONE NOT NULL,
+    shift_end TIME WITHOUT TIME ZONE NOT NULL,
+    duty_status VARCHAR(30) NOT NULL DEFAULT 'EMERGENCY_DUTY' CHECK (duty_status IN ('EMERGENCY_DUTY', 'NOT_ASSIGNED')),
+    doctor_availability_status VARCHAR(30) NOT NULL DEFAULT 'AVAILABLE' CHECK (doctor_availability_status IN ('AVAILABLE', 'BUSY', 'IN_CONSULTATION', 'OFF_DUTY', 'ON_LEAVE')),
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE,
+    CONSTRAINT uq_emergency_roster_doc_date_shift UNIQUE (doctor_id, roster_date, shift_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_emergency_roster_date ON emergency_doctor_roster(roster_date);
+CREATE INDEX IF NOT EXISTS idx_emergency_roster_doctor ON emergency_doctor_roster(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_roster_duty_status ON emergency_doctor_roster(duty_status);
+CREATE INDEX IF NOT EXISTS idx_emergency_roster_avail_status ON emergency_doctor_roster(doctor_availability_status);
+CREATE INDEX IF NOT EXISTS idx_emergency_roster_active_lookup ON emergency_doctor_roster(roster_date, duty_status, doctor_availability_status);
+
+-- 12. Emergency Requests Table (Rapid Triage & Deterministic Physician Allocation)
+CREATE TABLE IF NOT EXISTS emergency_requests (
+    id BIGSERIAL PRIMARY KEY,
+    patient_id BIGINT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    assigned_doctor_id BIGINT REFERENCES doctors(id) ON DELETE SET NULL,
+    request_time TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    assigned_time TIMESTAMP WITHOUT TIME ZONE,
+    status VARCHAR(30) NOT NULL DEFAULT 'WAITING' CHECK (status IN ('WAITING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_DOCTOR_AVAILABLE')),
+    priority VARCHAR(30) NOT NULL DEFAULT 'EMERGENCY',
+    category VARCHAR(50) DEFAULT 'General',
+    description TEXT,
+    doctor_notes TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_patient ON emergency_requests(patient_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_doctor ON emergency_requests(assigned_doctor_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_status ON emergency_requests(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_time ON emergency_requests(request_time DESC);
+

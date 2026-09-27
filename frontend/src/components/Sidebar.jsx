@@ -14,6 +14,7 @@ import {
   User,
   LogOut,
   Stethoscope,
+  Siren,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -109,6 +110,10 @@ const Sidebar = () => {
             <NavLink to="/admin/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <LayoutDashboard size={18} />
               <span>Platform Dashboard</span>
+            </NavLink>
+            <NavLink to="/admin/emergency-roster" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <Siren size={18} />
+              <span>Emergency Roster</span>
             </NavLink>
             <NavLink to="/admin/audit-logs" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Shield size={18} />

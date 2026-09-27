@@ -131,3 +131,60 @@ flowchart TD
 * Third normal form (3NF) relational database schema.
 * Explicit foreign key cascades and composite unique constraints (e.g., `uq_doctor_day` preventing duplicate doctor availability configurations).
 * B-tree indices on frequently queried columns (`user_id`, `doctor_id`, `patient_id`, `appointment_date`, `status`).
+
+---
+
+## 🚨 3. Emergency Doctor Allocation & Daily Duty Roster Subsystem
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Patient as Patient (Browser)
+    participant Ctrl as EmergencyRequestController
+    participant Alloc as EmergencyDoctorAllocationService
+    participant RosterRepo as EmergencyDoctorRosterRepository
+    participant RequestRepo as EmergencyRequestRepository
+    participant DB as PostgreSQL (Locks)
+    actor Doctor as Assigned Doctor
+
+    Patient->>Ctrl: POST /api/emergency-requests { category, reason }
+    Ctrl->>Alloc: allocateDoctorForEmergency(patient, category, reason)
+    Note over Alloc,RosterRepo: STEP 1 & 2: Query active emergency duty roster for today/shift (including cross-midnight shifts)
+    Alloc->>RosterRepo: findActiveRosterDoctors(date, time)
+    RosterRepo-->>Alloc: Candidate Roster List
+    Note over Alloc: STEP 3 & 4: Filter candidates (status == AVAILABLE)
+    Note over Alloc: STEP 5: Rank deterministically by Specialization Match -> Workload -> ID
+    alt No candidates available
+        Alloc->>RequestRepo: save(status: NO_DOCTOR_AVAILABLE)
+        Alloc-->>Ctrl: EmergencyRequest (NO_DOCTOR_AVAILABLE + Emergency Warning)
+        Ctrl-->>Patient: 200 OK (NO_DOCTOR_AVAILABLE Warning)
+    else Candidates found
+        loop For each candidate in ranked order
+            Alloc->>RosterRepo: findByIdForUpdate(candidate.id) [PESSIMISTIC_WRITE lock]
+            RosterRepo->>DB: SELECT FOR UPDATE
+            alt Candidate still AVAILABLE and EMERGENCY_DUTY
+                Alloc->>RosterRepo: update status to BUSY / IN_CONSULTATION
+                Alloc->>RequestRepo: save(status: ASSIGNED, assignedDoctor)
+                Alloc->>Alloc: Trigger doctor & patient in-app notifications
+                Alloc->>Alloc: Log immutable HIPAA audit record
+                Alloc-->>Ctrl: EmergencyRequest (ASSIGNED)
+                Ctrl-->>Patient: 200 OK (Doctor details + Emergency Guidance)
+                Ctrl-->>Doctor: Real-time case alert on dashboard
+            else Already claimed concurrently
+                Note over Alloc: Fallback to next candidate in ranked queue
+            end
+        end
+    end
+```
+
+### Key Architectural Tenets
+1. **Dynamic Daily Roster:** No doctor is permanently an emergency physician. Administrative rosters dictate shift assignments for specific calendar dates.
+2. **Cross-Midnight Shift Safety:** Night shifts spanning `20:00 - 08:00` evaluate active shifts across both calendar day boundaries (`shiftStart <= time OR time < shiftEnd`).
+3. **Pessimistic Write Locking (`SELECT FOR UPDATE`):** When two patients trigger emergency allocation concurrently, Spring Data JPA applies `@Lock(LockModeType.PESSIMISTIC_WRITE)` on the candidate's emergency roster row, preventing double-assignment races.
+4. **Deterministic Explainable Allocation:** No probabilistic AI or random picks. Candidacy strictly follows:
+   - Matching emergency-duty shift.
+   - `AVAILABLE` status.
+   - Clinical specialization preference if category provided.
+   - Lowest active emergency workload.
+   - Earliest assigned/deterministic ID tie-breaker.
+5. **Fail-Safe Graceful Fallback (`NO_DOCTOR_AVAILABLE`):** If all physicians are off-duty, busy, or on leave, the system never creates phantom assignments. It immediately provides explicit guidance to call local emergency services (911/112).

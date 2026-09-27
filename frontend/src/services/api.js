@@ -106,4 +106,28 @@ export const adminService = {
   getAuditLogs: () => api.get('/audit-logs'),
 };
 
+export const emergencyService = {
+  // Patient endpoints
+  createEmergencyRequest: (data) => api.post('/emergency-requests', data),
+  getMyEmergencyRequests: () => api.get('/emergency-requests/my'),
+  getEmergencyRequestById: (id) => api.get(`/emergency-requests/${id}`),
+  cancelEmergencyRequest: (id) => api.put(`/emergency-requests/${id}/cancel`),
+
+  // Doctor endpoints
+  getAssignedEmergencyRequests: () => api.get('/emergency-requests/assigned'),
+  updateEmergencyStatus: (id, data) => api.patch(`/emergency-requests/${id}/status`, data),
+  getMyEmergencyDuty: () => api.get('/emergency-roster/my-duty'),
+  updateMyDoctorStatus: (data) => api.put('/emergency-roster/my-status', data),
+
+  // Admin endpoints
+  getRoster: (params) => api.get('/admin/emergency-roster', { params }),
+  getRosterRange: (params) => api.get('/admin/emergency-roster/range', { params }),
+  createRoster: (data) => api.post('/admin/emergency-roster', data),
+  updateRoster: (id, data) => api.put(`/admin/emergency-roster/${id}`, data),
+  deleteRoster: (id) => api.delete(`/admin/emergency-roster/${id}`),
+  getAllEmergencyRequests: () => api.get('/admin/emergency-requests'),
+  getEmergencyStats: () => api.get('/admin/emergency-stats'),
+};
+
 export default api;
+

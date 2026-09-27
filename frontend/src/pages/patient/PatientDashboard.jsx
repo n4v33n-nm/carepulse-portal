@@ -13,37 +13,46 @@ import {
   Users,
   Search,
   Sparkles,
+  HeartPulse,
+  Siren,
+  Phone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { appointmentService, recordService, prescriptionService, notificationService } from '../../services/api';
+import { appointmentService, recordService, prescriptionService, notificationService, emergencyService } from '../../services/api';
+import EmergencyAssistanceModal from '../../components/EmergencyAssistanceModal';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [records, setRecords] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [emergencyRequests, setEmergencyRequests] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [appRes, recRes, presRes, notifRes, emergRes] = await Promise.all([
+        appointmentService.getMyAppointments(),
+        recordService.getMyRecords(),
+        prescriptionService.getMyPrescriptions(),
+        notificationService.getUnreadCount(),
+        emergencyService.getMyEmergencyRequests().catch(() => ({ data: [] })),
+      ]);
+      setAppointments(appRes.data || []);
+      setRecords(recRes.data || []);
+      setPrescriptions(presRes.data || []);
+      setUnreadCount(notifRes.data?.unreadCount || 0);
+      setEmergencyRequests(emergRes.data || []);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [appRes, recRes, presRes, notifRes] = await Promise.all([
-          appointmentService.getMyAppointments(),
-          recordService.getMyRecords(),
-          prescriptionService.getMyPrescriptions(),
-          notificationService.getUnreadCount(),
-        ]);
-        setAppointments(appRes.data || []);
-        setRecords(recRes.data || []);
-        setPrescriptions(presRes.data || []);
-        setUnreadCount(notifRes.data?.unreadCount || 0);
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboardData();
   }, []);
 
@@ -95,6 +104,49 @@ const PatientDashboard = () => {
           <p style={{ maxWidth: '720px', fontSize: '1rem', opacity: 0.95, lineHeight: 1.5 }}>
             {getEmpathyMessage()}
           </p>
+        </div>
+      </div>
+
+      {/* Emergency Assistance Direct Dispatch Card */}
+      <div className="emergency-hero-card" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: '#ffe4e6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#e11d48',
+                flexShrink: 0,
+              }}
+            >
+              <Siren size={26} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                <h3 style={{ fontSize: '1.25rem', color: '#be123c', fontWeight: 800, margin: 0 }}>
+                  Emergency Medical Assistance
+                </h3>
+                <span className="emergency-pulse-badge">24/7 Active Duty Roster</span>
+              </div>
+              <p style={{ color: 'var(--slate-600)', fontSize: '0.875rem', maxWidth: '680px', margin: 0 }}>
+                Need urgent care? Skip scheduling wait times. Our deterministic triage algorithm instantly verifies today's active duty roster and assigns an available physician.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-emergency"
+            onClick={() => setShowEmergencyModal(true)}
+            style={{ padding: '12px 22px', fontSize: '0.9375rem' }}
+          >
+            <HeartPulse size={18} />
+            Emergency Assistance
+          </button>
         </div>
       </div>
 
@@ -345,6 +397,92 @@ const PatientDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Emergency Requests History */}
+      <div className="card" style={{ marginTop: '28px' }}>
+        <div className="card-header">
+          <span className="card-title">
+            <Siren size={20} style={{ color: '#e11d48' }} /> Emergency Assistance History
+          </span>
+          <button
+            type="button"
+            className="btn btn-emergency btn-sm"
+            onClick={() => setShowEmergencyModal(true)}
+          >
+            <HeartPulse size={14} /> New Request
+          </button>
+        </div>
+
+        {emergencyRequests.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate-500)', fontSize: '0.875rem' }}>
+            No emergency requests logged. Use the Emergency Assistance button above if immediate clinical triage is needed.
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Request ID & Date</th>
+                  <th>Category</th>
+                  <th>Assigned Physician</th>
+                  <th>Symptoms / Reason</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emergencyRequests.map((req) => (
+                  <tr key={req.id}>
+                    <td>
+                      <div style={{ fontWeight: 700, color: 'var(--slate-900)' }}>
+                        #{req.id}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>
+                        {new Date(req.requestTime).toLocaleDateString()} {new Date(req.requestTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-emergency">
+                        {req.category || 'General'}
+                      </span>
+                    </td>
+                    <td>
+                      {req.doctorName ? (
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--slate-900)' }}>
+                            {req.doctorName}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--primary-700)', fontWeight: 500 }}>
+                            {req.doctorSpecialization}
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--slate-400)', fontStyle: 'italic', fontSize: '0.8125rem' }}>
+                          Not Allocated
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ maxWidth: '240px', fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+                      {req.description || 'Immediate emergency triage requested'}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${(req.status || 'waiting').toLowerCase()}`}>
+                        {req.status === 'NO_DOCTOR_AVAILABLE' ? 'NO DOCTOR' : req.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Emergency Assistance Modal */}
+      <EmergencyAssistanceModal
+        isOpen={showEmergencyModal}
+        onClose={() => setShowEmergencyModal(false)}
+        onSuccess={() => fetchDashboardData()}
+      />
     </div>
   );
 };

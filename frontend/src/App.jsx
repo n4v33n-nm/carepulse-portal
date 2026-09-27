@@ -27,6 +27,7 @@ import DoctorRecords from './pages/doctor/DoctorRecords';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminEmergencyRoster from './pages/admin/AdminEmergencyRoster';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 
 // Helper to redirect authenticated users based on their role
@@ -159,6 +160,7 @@ const App = () => {
       >
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="emergency-roster" element={<AdminEmergencyRoster />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
       </Route>
 

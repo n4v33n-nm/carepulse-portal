@@ -24,6 +24,7 @@ public class DataInitializer implements CommandLineRunner {
     private final CaregiverAccessRepository caregiverAccessRepository;
     private final NotificationRepository notificationRepository;
     private final AuditLogRepository auditLogRepository;
+    private final EmergencyDoctorRosterRepository emergencyDoctorRosterRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(UserRepository userRepository,
@@ -36,6 +37,7 @@ public class DataInitializer implements CommandLineRunner {
                            CaregiverAccessRepository caregiverAccessRepository,
                            NotificationRepository notificationRepository,
                            AuditLogRepository auditLogRepository,
+                           EmergencyDoctorRosterRepository emergencyDoctorRosterRepository,
                            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.patientRepository = patientRepository;
@@ -47,6 +49,7 @@ public class DataInitializer implements CommandLineRunner {
         this.caregiverAccessRepository = caregiverAccessRepository;
         this.notificationRepository = notificationRepository;
         this.auditLogRepository = auditLogRepository;
+        this.emergencyDoctorRosterRepository = emergencyDoctorRosterRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -54,6 +57,7 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (userRepository.count() > 0) {
+            seedEmergencyRosterIfEmpty();
             return; // Data already seeded
         }
 
@@ -287,6 +291,108 @@ public class DataInitializer implements CommandLineRunner {
         auditLogRepository.save(new AuditLog("dr.jenkins@carepulse.com", "APPOINTMENT_STATUS_UPDATED", "Appointment:" + appt1.getId(), "Status set to CONFIRMED"));
         auditLogRepository.save(new AuditLog("dr.sharma@carepulse.com", "PRESCRIPTION_CREATED", "Prescription:" + pres1.getId(), "Prescribed Atorvastatin 10mg"));
 
+        // 10. Emergency Doctor Roster
+        seedEmergencyRosterIfEmpty();
+
         System.out.println("CarePulse demo data successfully seeded!");
+    }
+
+    private void seedEmergencyRosterIfEmpty() {
+        if (emergencyDoctorRosterRepository.count() > 0) {
+            return;
+        }
+
+        List<Doctor> doctors = doctorRepository.findAll();
+        if (doctors.size() < 2) {
+            return;
+        }
+
+        System.out.println("Seeding Emergency Doctor Duty Roster demo data...");
+
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+
+        Doctor docJenkins = doctors.stream().filter(d -> d.getFullName().contains("Jenkins")).findFirst().orElse(doctors.get(0));
+        Doctor docVance = doctors.stream().filter(d -> d.getFullName().contains("Vance")).findFirst().orElse(doctors.size() > 1 ? doctors.get(1) : doctors.get(0));
+        Doctor docSharma = doctors.stream().filter(d -> d.getFullName().contains("Sharma")).findFirst().orElse(doctors.size() > 2 ? doctors.get(2) : doctors.get(0));
+
+        // TODAY ROSTER:
+        // Morning (08:00 - 14:00): Dr. Priya Sharma (General Medicine) & Dr. Sarah Jenkins (Cardiology)
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docSharma,
+                today,
+                "MORNING",
+                LocalTime.of(8, 0),
+                LocalTime.of(14, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docJenkins,
+                today,
+                "MORNING",
+                LocalTime.of(8, 0),
+                LocalTime.of(14, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        // Evening (14:00 - 20:00): Dr. Marcus Vance (Dermatology) & Dr. Sarah Jenkins (Cardiology)
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docVance,
+                today,
+                "EVENING",
+                LocalTime.of(14, 0),
+                LocalTime.of(20, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docJenkins,
+                today,
+                "EVENING",
+                LocalTime.of(14, 0),
+                LocalTime.of(20, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        // Night (20:00 - 08:00): Dr. Priya Sharma (General Medicine)
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docSharma,
+                today,
+                "NIGHT",
+                LocalTime.of(20, 0),
+                LocalTime.of(8, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        // TOMORROW ROSTER (Demonstrating daily dynamic rotation):
+        // Morning: Dr. Marcus Vance
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docVance,
+                tomorrow,
+                "MORNING",
+                LocalTime.of(8, 0),
+                LocalTime.of(14, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        // Evening: Dr. Priya Sharma
+        emergencyDoctorRosterRepository.save(new EmergencyDoctorRoster(
+                docSharma,
+                tomorrow,
+                "EVENING",
+                LocalTime.of(14, 0),
+                LocalTime.of(20, 0),
+                "EMERGENCY_DUTY",
+                "AVAILABLE"
+        ));
+
+        auditLogRepository.save(new AuditLog("admin@carepulse.com", "EMERGENCY_ROSTER_INITIALIZED", "EmergencyRoster", "Default emergency duty roster seeded for today and tomorrow"));
     }
 }
