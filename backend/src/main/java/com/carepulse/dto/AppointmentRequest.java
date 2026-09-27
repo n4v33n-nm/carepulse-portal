@@ -26,6 +26,21 @@ public class AppointmentRequest {
     public AppointmentRequest() {
     }
 
+    public AppointmentRequest(Long doctorId, LocalDate appointmentDate, LocalTime appointmentTime, String reason) {
+        this.doctorId = doctorId;
+        this.appointmentDate = appointmentDate;
+        this.appointmentTime = appointmentTime;
+        this.reason = reason;
+    }
+
+    public AppointmentRequest(Long doctorId, Long patientId, LocalDate appointmentDate, LocalTime appointmentTime, String reason) {
+        this.doctorId = doctorId;
+        this.patientId = patientId;
+        this.appointmentDate = appointmentDate;
+        this.appointmentTime = appointmentTime;
+        this.reason = reason;
+    }
+
     public Long getDoctorId() {
         return doctorId;
     }

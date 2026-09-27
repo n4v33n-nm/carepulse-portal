@@ -191,6 +191,100 @@ Calculates dynamic, conflict-free consultation time slots for a given doctor and
 
 ---
 
+### `GET /api/doctors/{id}/available-slots`
+Calculates dynamic, real-time consultation slots excluding booked appointments and past time blocks for today.
+* **Auth Requirement:** None (Public or Authenticated)
+* **Query Parameters:** `date` (format: `YYYY-MM-DD`, required)
+* **Response Example (200 OK):**
+```json
+[
+  "09:30:00",
+  "10:00:00",
+  "11:00:00",
+  "14:30:00"
+]
+```
+
+---
+
+### `GET /api/doctors/match`
+Intelligent, explainable doctor matching engine. Evaluates physician specialization, daily schedule, time-window availability, absence/leave records, existing appointment conflicts, and emergency duty commitments. Ranks candidates by lowest workload first.
+* **Auth Requirement:** None (Public or Authenticated)
+* **Query Parameters:**
+  - `specialization` (required, e.g., `Cardiology`)
+  - `date` (required, `YYYY-MM-DD`)
+  - `time` (required, `HH:mm` or `HH:mm:ss`)
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "doctorId": 1,
+    "fullName": "Dr. Sarah Jenkins",
+    "email": "dr.jenkins@carepulse.com",
+    "specialization": "Cardiology",
+    "hospitalAffiliation": "St. Jude Medical Center",
+    "consultationFee": 1500.0,
+    "rating": 4.9,
+    "available": true,
+    "hasAppointmentConflict": false,
+    "onEmergencyDuty": false,
+    "currentAppointmentCount": 1,
+    "currentEmergencyWorkload": 0,
+    "totalWorkload": 1,
+    "nextAvailableSlot": "11:00:00",
+    "matchReasons": [
+      "Cardiology Specialist",
+      "Available at 10:30:00",
+      "Zero Schedule Conflicts",
+      "Current Workload: 1 appointment"
+    ],
+    "disclaimer": "This matching engine provides administrative scheduling recommendations based on doctor availability, specialization, and clinical workload. It does not provide medical diagnosis, clinical triage, or treatment recommendations."
+  }
+]
+```
+
+---
+
+### `GET /api/doctors/workload`
+Retrieves daily clinical workload metrics for all active physicians across scheduled appointments and emergency requests.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Query Parameters:** `date` (format: `YYYY-MM-DD`, optional, defaults to today)
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "doctorId": 1,
+    "doctorName": "Dr. Sarah Jenkins",
+    "specialization": "Cardiology",
+    "date": "2026-09-27",
+    "totalAppointments": 4,
+    "pendingAppointments": 1,
+    "confirmedAppointments": 2,
+    "completedAppointments": 1,
+    "cancelledAppointments": 0,
+    "emergencyRequests": 1,
+    "completedEmergencyRequests": 1,
+    "activeEmergencyRequests": 0,
+    "totalWorkload": 3,
+    "currentAvailability": "AVAILABLE",
+    "emergencyDutyToday": true,
+    "emergencyShiftName": "MORNING",
+    "emergencyShiftHours": "08:00 - 14:00"
+  }
+]
+```
+
+---
+
+### `GET /api/doctors/{id}/workload`
+Retrieves individual doctor clinical capacity and caseload distribution for a given date.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`, `ADMIN`
+* **Query Parameters:** `date` (format: `YYYY-MM-DD`, optional, defaults to today)
+
+---
+
 ## 3. Appointment Coordination
 
 ### `POST /api/appointments`
@@ -270,6 +364,114 @@ Updates an appointment status (`CONFIRMED`, `COMPLETED`, `CANCELLED`).
 
 ---
 
+### `GET /api/appointments/available-slots`
+Dynamic slot retrieval endpoint filtering doctor's schedule, existing appointments, and past slots for today.
+* **Auth Requirement:** None (Public or Authenticated)
+* **Query Parameters:**
+  - `doctorId` (required, Long)
+  - `date` (required, `YYYY-MM-DD`)
+* **Response Example (200 OK):**
+```json
+[
+  "09:30:00",
+  "10:00:00",
+  "11:00:00",
+  "14:30:00"
+]
+```
+
+---
+
+### `POST /api/appointments/waitlist`
+Places a patient on the priority waitlist when preferred consultation slots are fully booked.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `ADMIN`
+* **Request Example:**
+```json
+{
+  "doctorId": 1,
+  "specialization": "Cardiology",
+  "preferredDate": "2026-10-05",
+  "preferredTime": "10:30:00"
+}
+```
+* **Response Example (200 OK):**
+```json
+{
+  "id": 1,
+  "patientId": 1,
+  "patientName": "John Doe",
+  "doctorId": 1,
+  "doctorName": "Dr. Sarah Jenkins",
+  "specialization": "Cardiology",
+  "preferredDate": "2026-10-05",
+  "preferredTime": "10:30:00",
+  "status": "WAITING",
+  "createdAt": "2026-09-27T10:15:00"
+}
+```
+
+---
+
+### `GET /api/appointments/waitlist`
+Retrieves all priority waitlist entries for the authenticated patient.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `ADMIN`
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "patientId": 1,
+    "patientName": "John Doe",
+    "doctorId": 1,
+    "doctorName": "Dr. Sarah Jenkins",
+    "specialization": "Cardiology",
+    "preferredDate": "2026-10-05",
+    "preferredTime": "10:30:00",
+    "status": "NOTIFIED",
+    "createdAt": "2026-09-27T10:15:00"
+  }
+]
+```
+
+---
+
+### `DELETE /api/appointments/waitlist/{id}`
+Cancels and withdraws an active priority waitlist entry (`status = CANCELLED`).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `ADMIN`
+* **Response Example (200 OK):**
+```json
+{
+  "message": "Waitlist entry cancelled successfully"
+}
+```
+
+---
+
+### `GET /api/appointments/{id}/wait-time`
+Calculates an explainable, data-grounded consultation wait time estimate based on real database records.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `DOCTOR`, `ADMIN`
+* **Response Example (200 OK):**
+```json
+{
+  "appointmentId": 6,
+  "doctorId": 1,
+  "doctorName": "Dr. Sarah Jenkins",
+  "appointmentDate": "2026-10-05",
+  "scheduledTime": "10:30:00",
+  "patientsAhead": 2,
+  "estimatedWaitMinutes": 40,
+  "doctorCurrentEmergencyCaseload": 0,
+  "caseloadLevel": "MODERATE",
+  "explanation": "2 patients scheduled ahead of you (~40 mins estimated wait based on 20 min avg consultation). Physician has 0 active emergency cases."
+}
+```
+
+---
+
 ## 4. Medical Records Timeline
 
 ### `GET /api/records/my`
@@ -317,6 +519,45 @@ Authors a new clinical record entry.
   "recordDate": "2026-09-26",
   "diagnosis": "Follow-up: Stable Hypertension",
   "treatment": "Continue Lisinopril 10mg once daily"
+}
+```
+
+---
+
+### `POST /api/records/{id}/ai-summary-draft`
+Generates a structured, concise AI draft summary for a clinical medical record based on diagnosis, presenting symptoms, treatment plan, and consultation notes. The draft is saved with `summaryStatus = DRAFT_PENDING_REVIEW` and is NOT treated as a finalized clinical document until verified by a physician.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`
+* **Response Example (200 OK):**
+```json
+{
+  "id": 1,
+  "recordDate": "2026-09-15",
+  "diagnosis": "Essential (Primary) Hypertension",
+  "aiDraftSummary": "CLINICAL SUMMARY DRAFT (PENDING VERIFICATION)\n- Diagnosis: Essential (Primary) Hypertension\n- Presenting Symptoms: Mild afternoon headaches, elevated resting blood pressure (145/92 mmHg)\n- Treatment Plan: Lifestyle modification (DASH diet) and daily oral Lisinopril\n- Physician Notes: Patient responded favorably to initial trial. Target BP < 130/80 mmHg.",
+  "summaryStatus": "DRAFT_PENDING_REVIEW"
+}
+```
+
+---
+
+### `POST /api/records/{id}/ai-summary-review`
+Physician review action for an AI-generated draft summary. Doctors can `APPROVE`, `EDIT_AND_APPROVE` (submitting customized text), or `REJECT`.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`
+* **Request Example (Approve with Edits):**
+```json
+{
+  "action": "EDIT_AND_APPROVE",
+  "editedSummary": "CLINICAL SUMMARY (VERIFIED)\n- Patient stable on Lisinopril 10mg once daily.\n- Recommended home blood pressure monitoring twice weekly.\n- Follow up in 6 months."
+}
+```
+* **Response Example (200 OK):**
+```json
+{
+  "id": 1,
+  "clinicalSummary": "CLINICAL SUMMARY (VERIFIED)\n- Patient stable on Lisinopril 10mg once daily.\n- Recommended home blood pressure monitoring twice weekly.\n- Follow up in 6 months.",
+  "summaryStatus": "APPROVED"
 }
 ```
 
@@ -824,6 +1065,50 @@ Retrieves comprehensive emergency department statistics and individual doctor ca
       "totalPast7DaysShifts": 2
     }
   ]
+}
+```
+
+---
+
+### `GET /api/admin/analytics`
+Unified healthcare coordination analytics aggregating high-level clinical metrics, emergency volume, doctor workload balancing distribution, and multi-day trends.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Response Example (200 OK):**
+```json
+{
+  "totalPatients": 48,
+  "totalDoctors": 12,
+  "todayAppointments": 15,
+  "completedAppointments": 8,
+  "cancelledAppointments": 2,
+  "emergencyRequests": 5,
+  "completedEmergencyRequests": 3,
+  "waitingEmergencyRequests": 1,
+  "doctorWorkloads": [
+    {
+      "doctorId": 1,
+      "doctorName": "Dr. Sarah Jenkins",
+      "specialization": "Cardiology",
+      "totalAppointments": 4,
+      "pendingAppointments": 1,
+      "confirmedAppointments": 2,
+      "completedAppointments": 1,
+      "emergencyRequests": 1,
+      "totalWorkload": 3,
+      "currentAvailability": "AVAILABLE"
+    }
+  ],
+  "dailyAppointmentTrends": {
+    "2026-09-25": 10,
+    "2026-09-26": 14,
+    "2026-09-27": 15
+  },
+  "dailyEmergencyTrends": {
+    "2026-09-25": 3,
+    "2026-09-26": 6,
+    "2026-09-27": 5
+  }
 }
 ```
 

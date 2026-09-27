@@ -245,3 +245,82 @@ sequenceDiagram
 * **Multi-Container Composition (`docker-compose.yml`):** Orchestrates PostgreSQL 16, backend Spring Boot, and frontend React services on an internal bridge network with health dependencies.
 * **GitHub Actions CI (`.github/workflows/ci.yml`):** Automatically tests backend Java suite, verifies packaging, installs frontend packages, and runs Vite production builds on every push and PR to `main`.
 
+---
+
+## 🧠 5. Smart Healthcare Coordination & Intelligent Scheduling (Phase 5)
+
+Phase 5 introduces an intelligent, data-grounded coordination tier without adding external distributed microservices or message queues.
+
+```mermaid
+flowchart TD
+    subgraph PatientCoordination["Patient Coordination Flow"]
+        PUser["Patient Client"]
+        MatchCtrl["DoctorController (/api/doctors/match)"]
+        MatchEngine["SmartDoctorMatchingService"]
+        SlotEngine["Dynamic Slot Slicing Engine"]
+        WaitlistEngine["AppointmentWaitlistService"]
+        WaitTimeEngine["AppointmentWaitTimeService"]
+
+        PUser -->|1. Specialization + Date/Time| MatchCtrl
+        MatchCtrl --> MatchEngine
+        MatchEngine -->|Active Schedule + No Conflicts| SlotEngine
+        PUser -->|2. Join Waitlist (Full Capacity)| WaitlistEngine
+        PUser -->|3. View Consultation Wait-Time| WaitTimeEngine
+    end
+
+    subgraph CancellationLoop["Cancelled Slot Reuse & Waitlist Dispatch"]
+        CancelAction["Patient / Doctor Cancels Appointment"]
+        ApptService["AppointmentService.cancelAppointment()"]
+        WaitlistRepo["AppointmentWaitlistRepository"]
+        NotifService["NotificationService"]
+
+        CancelAction --> ApptService
+        ApptService -->|Trigger Cancellation Hook| WaitlistEngine
+        WaitlistEngine -->|Find WAITING patients| WaitlistRepo
+        WaitlistEngine -->|Dispatch Notification (SLOT_OPEN)| NotifService
+    end
+
+    subgraph ClinicalVerification["AI Clinical Summary Physician Review"]
+        DocClient["Doctor Clinical Portal"]
+        DraftAction["Generate AI Draft Summary"]
+        RecordService["MedicalRecordService"]
+        PhysicianReview["Physician Action (Approve / Edit / Reject)"]
+
+        DocClient --> DraftAction
+        DraftAction -->|Create DRAFT_PENDING_REVIEW| RecordService
+        RecordService -.->|Never auto-commits unverified notes| DocClient
+        DocClient --> PhysicianReview
+        PhysicianReview -->|Approve / Edit| RecordService
+        RecordService -->|Commit APPROVED clinicalSummary| PostgresDB[("PostgreSQL")]
+    end
+
+    subgraph BackgroundSchedulers["Scheduled Background Operations"]
+        SpringScheduler["Spring Scheduler (@EnableScheduling)"]
+        WaitlistJanitor["ScheduledTasksService.cleanupExpiredWaitlist()"]
+        ApptReminders["ScheduledTasksService.sendDailyAppointmentReminders()"]
+
+        SpringScheduler --> WaitlistJanitor
+        SpringScheduler --> ApptReminders
+    end
+```
+
+### Architectural Pillars:
+1. **Explainable Doctor Matching (`SmartDoctorMatchingService`):**
+   - Matches candidate doctors based on 7 deterministic factors: Specialization, active account status, day of week schedule, requested time interval containment, non-leave status, zero conflicting bookings, and emergency duty commitments.
+   - Workload-sorted: Sorts candidates by `activeAppointments + activeEmergencyCases` ascending.
+   - Transparent rationale: Constructs explainable badge reasons presented to the patient.
+   - Clinical non-diagnostic disclaimer: Explicitly clarifies that the matching engine performs administrative scheduling assistance, not medical diagnosis.
+2. **Dynamic Slot Generation & Cancelled Slot Reuse:**
+   - Computes slots dynamically from `startTime`, `endTime`, and `slotDurationMinutes`.
+   - Excludes active bookings (`PENDING`, `CONFIRMED`, `IN_PROGRESS`) and past time windows for the current day.
+   - Cancelled appointments are omitted from the conflict query, instantly returning the slot to the available pool.
+3. **Automated Priority Waitlist:**
+   - Managed in `appointment_waitlist` with statuses: `WAITING`, `NOTIFIED`, `BOOKED`, `CANCELLED`, `EXPIRED`.
+   - In-app notification triggers automatically on appointment cancellation, inviting the queued patient to book.
+4. **Data-Grounded Wait-Time Estimation (`AppointmentWaitTimeService`):**
+   - Calculates real queue metrics: Number of patients ahead scheduled on the same date multiplied by configured consultation duration, adjusted for active emergency cases.
+5. **AI Safety Boundaries & Physician Verification:**
+   - AI companion disclaims diagnosis and redirects emergency symptoms (`chest pain`, `shortness of breath`) to 911/112.
+   - AI clinical record summaries require explicit physician sign-off (`APPROVE`, `EDIT_AND_APPROVE`, `REJECT`) before being treated as finalized clinical records.
+
+

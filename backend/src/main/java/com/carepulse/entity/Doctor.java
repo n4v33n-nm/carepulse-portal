@@ -36,6 +36,9 @@ public class Doctor {
     @Column(name = "consultation_fee")
     private Double consultationFee = 800.0;
 
+    @Column(name = "hospital_affiliation", length = 150)
+    private String hospitalAffiliation = "CarePulse Medical Center";
+
     private Double rating = 4.8;
 
     @Column(name = "availability_status", length = 30)
@@ -176,5 +179,17 @@ public class Doctor {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getHospitalAffiliation() {
+        return hospitalAffiliation;
+    }
+
+    public void setHospitalAffiliation(String hospitalAffiliation) {
+        this.hospitalAffiliation = hospitalAffiliation;
+    }
+
+    public Integer getYearsOfExperience() {
+        return experienceYears;
     }
 }

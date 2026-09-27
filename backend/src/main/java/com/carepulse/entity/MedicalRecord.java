@@ -35,6 +35,15 @@ public class MedicalRecord {
     @Column(name = "consultation_notes", columnDefinition = "TEXT")
     private String consultationNotes;
 
+    @Column(name = "clinical_summary", columnDefinition = "TEXT")
+    private String clinicalSummary;
+
+    @Column(name = "ai_draft_summary", columnDefinition = "TEXT")
+    private String aiDraftSummary;
+
+    @Column(name = "summary_status", length = 30)
+    private String summaryStatus = "APPROVED"; // APPROVED, PENDING_REVIEW, REJECTED
+
     private String attachments;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -154,5 +163,29 @@ public class MedicalRecord {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getClinicalSummary() {
+        return clinicalSummary;
+    }
+
+    public void setClinicalSummary(String clinicalSummary) {
+        this.clinicalSummary = clinicalSummary;
+    }
+
+    public String getAiDraftSummary() {
+        return aiDraftSummary;
+    }
+
+    public void setAiDraftSummary(String aiDraftSummary) {
+        this.aiDraftSummary = aiDraftSummary;
+    }
+
+    public String getSummaryStatus() {
+        return summaryStatus;
+    }
+
+    public void setSummaryStatus(String summaryStatus) {
+        this.summaryStatus = summaryStatus;
     }
 }

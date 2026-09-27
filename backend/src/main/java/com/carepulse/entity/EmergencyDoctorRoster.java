@@ -79,11 +79,23 @@ public class EmergencyDoctorRoster {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        if (this.shiftStart != null) {
+            this.shiftStart = this.shiftStart.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        }
+        if (this.shiftEnd != null) {
+            this.shiftEnd = this.shiftEnd.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+        if (this.shiftStart != null) {
+            this.shiftStart = this.shiftStart.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        }
+        if (this.shiftEnd != null) {
+            this.shiftEnd = this.shiftEnd.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        }
     }
 
     /**

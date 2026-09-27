@@ -104,6 +104,9 @@ CREATE TABLE IF NOT EXISTS medical_records (
     symptoms TEXT,
     treatment TEXT,
     consultation_notes TEXT,
+    clinical_summary TEXT,
+    ai_draft_summary TEXT,
+    summary_status VARCHAR(30) DEFAULT 'APPROVED' CHECK (summary_status IN ('APPROVED', 'PENDING_REVIEW', 'REJECTED')),
     attachments VARCHAR(500),
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE
@@ -218,4 +221,22 @@ CREATE INDEX IF NOT EXISTS idx_emergency_requests_status ON emergency_requests(s
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_priority ON emergency_requests(priority);
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_time ON emergency_requests(request_time DESC);
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_created_at ON emergency_requests(created_at DESC);
+
+-- 13. Appointment Waitlist (Intelligent Slot Reuse & Patient Notification)
+CREATE TABLE IF NOT EXISTS appointment_waitlist (
+    id BIGSERIAL PRIMARY KEY,
+    patient_id BIGINT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    doctor_id BIGINT REFERENCES doctors(id) ON DELETE CASCADE,
+    specialization VARCHAR(100),
+    preferred_date DATE NOT NULL,
+    preferred_time TIME WITHOUT TIME ZONE,
+    status VARCHAR(30) NOT NULL DEFAULT 'WAITING' CHECK (status IN ('WAITING', 'NOTIFIED', 'BOOKED', 'CANCELLED', 'EXPIRED')),
+    notes TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_waitlist_patient ON appointment_waitlist(patient_id);
+CREATE INDEX IF NOT EXISTS idx_waitlist_doctor_date ON appointment_waitlist(doctor_id, preferred_date);
+CREATE INDEX IF NOT EXISTS idx_waitlist_status ON appointment_waitlist(status);
 

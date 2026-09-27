@@ -38,6 +38,43 @@ public class AiHealthCompanionService {
         String responseText;
         List<String> suggestedQuestions;
 
+        // Check for acute emergency / urgent life-threatening symptoms
+        if (message.contains("chest pain") || message.contains("heart attack") || message.contains("stroke") ||
+            message.contains("severe bleeding") || message.contains("unconscious") || message.contains("can't breathe") ||
+            message.contains("shortness of breath") || message.contains("emergency")) {
+            if ("SIMPLE".equalsIgnoreCase(tone)) {
+                responseText = "EMERGENCY ALERT: This sounds like a potential medical emergency! Do NOT wait for an online appointment. Please call emergency services (911/112) or use CarePulse Emergency Assistance right away!";
+            } else if ("PROFESSIONAL".equalsIgnoreCase(tone)) {
+                responseText = "Critical Protocol Alert: The symptoms described suggest an acute medical emergency. AI health assistants cannot evaluate acute distress. Initiate local emergency medical response (911/112) or trigger CarePulse Emergency Doctor Allocation immediately.";
+            } else {
+                responseText = "⚠️ EMERGENCY SAFETY WARNING: Your health and safety come first. If you or someone with you has severe chest pain, trouble breathing, sudden weakness, or intense pain, please call local emergency services (911/112) or click 'Request Emergency Assistance' at the top of your CarePulse portal immediately!";
+            }
+            suggestedQuestions = Arrays.asList(
+                    "How do I request emergency assistance?",
+                    "Where can I find emergency duty doctors?",
+                    "How does emergency allocation work?"
+            );
+            return new AiChatResponse(responseText, tone, suggestedQuestions);
+        }
+
+        // Check for medication prescription requests
+        if (message.contains("prescribe") || message.contains("what medicine should i take") ||
+            message.contains("give me antibiotics") || message.contains("which pill") || message.contains("which medicine for")) {
+            if ("SIMPLE".equalsIgnoreCase(tone)) {
+                responseText = "I cannot prescribe medications. Only licensed physicians can prescribe drugs. Please schedule a visit with a doctor on CarePulse.";
+            } else if ("PROFESSIONAL".equalsIgnoreCase(tone)) {
+                responseText = "Regulatory & Clinical Boundary: AI health coordinators are legally prohibited from issuing pharmacotherapeutic prescriptions or dosing regimens. Consult a licensed physician via CarePulse to obtain a valid digital prescription.";
+            } else {
+                responseText = "I cannot prescribe medicines or suggest specific drug dosages. To get a safe, effective prescription tailored to your body and history, please book a consultation with one of our licensed doctors in the 'Find a Doctor' section!";
+            }
+            suggestedQuestions = Arrays.asList(
+                    "How do I find a doctor for my condition?",
+                    "How do I view my existing prescriptions?",
+                    "What information should I share with my doctor?"
+            );
+            return new AiChatResponse(responseText, tone, suggestedQuestions);
+        }
+
         // Check for diagnosis or dangerous medical self-diagnosis attempts
         if (message.contains("diagnose") || message.contains("what disease do i have") || message.contains("do i have cancer") || message.contains("cure me")) {
             if ("SIMPLE".equalsIgnoreCase(tone)) {

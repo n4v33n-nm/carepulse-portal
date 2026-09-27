@@ -26,19 +26,22 @@ public class AppointmentService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final CaregiverService caregiverService;
+    private final AppointmentWaitlistService waitlistService;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientRepository patientRepository,
                               DoctorRepository doctorRepository,
                               NotificationService notificationService,
                               AuditLogService auditLogService,
-                              CaregiverService caregiverService) {
+                              CaregiverService caregiverService,
+                              AppointmentWaitlistService waitlistService) {
         this.appointmentRepository = appointmentRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
         this.caregiverService = caregiverService;
+        this.waitlistService = waitlistService;
     }
 
     @Transactional
@@ -103,6 +106,8 @@ public class AppointmentService {
         notificationService.createNotification(doctor.getUser(), "New Appointment Request", "New consultation request from patient " + patient.getFullName() + " on " + dateStr + " at " + timeStr + ".", "APPOINTMENT");
 
         auditLogService.log(patientEmail, "APPOINTMENT_CREATED", "Appointment:" + saved.getId(), "Booked appointment with Dr. " + doctor.getFullName());
+
+        waitlistService.markWaitlistAsBooked(patient.getId(), doctor.getId(), request.getAppointmentDate());
 
         return saved;
     }
@@ -214,6 +219,8 @@ public class AppointmentService {
 
         if ("CANCELLED".equalsIgnoreCase(newStatus)) {
             auditLogService.log(userEmail, "APPOINTMENT_CANCELLED", "Appointment:" + updated.getId(), "Appointment cancelled. Reason: " + request.getCancellationReason());
+            // Section 3 & 4: Automatically check waitlist and notify waiting patients of the freed slot
+            waitlistService.processWaitlistOnSlotAvailable(appointment.getDoctor(), appointment.getAppointmentDate(), appointment.getAppointmentTime());
         } else {
             auditLogService.log(userEmail, "APPOINTMENT_STATUS_UPDATED", "Appointment:" + updated.getId(), "Status changed from " + oldStatus + " to " + newStatus);
         }

@@ -12,18 +12,23 @@ import {
   AlertTriangle,
   Siren,
   LayoutDashboard,
+  BarChart3,
+  TrendingUp,
+  Clock,
+  HeartPulse,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
 import AdminEmergencyRoster from './AdminEmergencyRoster';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [actionLoading, setActionLoading] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'emergency-roster'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'emergency-roster' | 'analytics'
 
   useEffect(() => {
     fetchAdminData();
@@ -32,12 +37,14 @@ const AdminDashboard = () => {
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, analyticsRes] = await Promise.all([
         adminService.getDashboardStats(),
         adminService.getAllUsers(),
+        adminService.getAnalytics().catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data || []);
+      setAnalytics(analyticsRes.data);
     } catch (err) {
       console.error('Failed to load admin stats:', err);
     } finally {
@@ -94,10 +101,247 @@ const AdminDashboard = () => {
         >
           <Siren size={16} /> Emergency Duty Roster & Workload
         </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('analytics')}
+          style={{ borderRadius: '6px 6px 0 0', borderBottom: 'none', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <BarChart3 size={16} /> Healthcare Coordination Analytics
+        </button>
       </div>
 
       {activeTab === 'emergency-roster' ? (
         <AdminEmergencyRoster />
+      ) : activeTab === 'analytics' ? (
+        <div>
+          {/* Section: Platform Overview */}
+          <div style={{ marginBottom: '28px' }}>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={20} style={{ color: 'var(--primary-600)' }} /> Platform Operations & Consultation Metrics
+            </h3>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon-wrapper stat-icon-primary"><Users size={24} /></div>
+                <div>
+                  <div className="stat-val">{analytics?.totalPatients ?? 0}</div>
+                  <div className="stat-label">Total Patients</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon-wrapper stat-icon-teal"><Stethoscope size={24} /></div>
+                <div>
+                  <div className="stat-val">{analytics?.totalDoctors ?? 0}</div>
+                  <div className="stat-label">Licensed Physicians</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon-wrapper stat-icon-indigo"><Calendar size={24} /></div>
+                <div>
+                  <div className="stat-val">{analytics?.todayAppointments ?? 0}</div>
+                  <div className="stat-label">Consultations Today</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon-wrapper stat-icon-teal"><CheckCircle2 size={24} /></div>
+                <div>
+                  <div className="stat-val">{analytics?.completedAppointments ?? 0}</div>
+                  <div className="stat-label">Completed Consultations</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon-wrapper stat-icon-amber"><AlertTriangle size={24} /></div>
+                <div>
+                  <div className="stat-val">{analytics?.cancelledAppointments ?? 0}</div>
+                  <div className="stat-label">Cancelled / Slots Reclaimed</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Emergency Analytics (Section 17) */}
+          <div className="card" style={{ marginBottom: '28px', borderLeft: '5px solid #e11d48' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Siren size={22} style={{ color: '#e11d48' }} />
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
+                  Emergency System Analytics & Response Performance
+                </h3>
+              </div>
+              <span className="badge badge-emergency">Real-time PostgreSQL Data</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--slate-200)', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-900)' }}>
+                  {analytics?.totalEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase', marginTop: '4px' }}>
+                  Total Emergency Requests
+                </div>
+              </div>
+
+              <div style={{ background: '#fffbeb', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#b45309' }}>
+                  {analytics?.waitingEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', marginTop: '4px' }}>
+                  Waiting in Triage
+                </div>
+              </div>
+
+              <div style={{ background: '#eff6ff', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #bfdbfe', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1d4ed8' }}>
+                  {analytics?.assignedEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase', marginTop: '4px' }}>
+                  Physician Assigned
+                </div>
+              </div>
+
+              <div style={{ background: '#fff1f2', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #fecdd3', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#e11d48' }}>
+                  {analytics?.inProgressEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9f1239', textTransform: 'uppercase', marginTop: '4px' }}>
+                  In Progress (Active)
+                </div>
+              </div>
+
+              <div style={{ background: '#f0fdf4', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#15803d' }}>
+                  {analytics?.completedEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginTop: '4px' }}>
+                  Successfully Resolved
+                </div>
+              </div>
+
+              <div style={{ background: '#fef2f2', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #fca5a5', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#dc2626' }}>
+                  {analytics?.noDoctorAvailableEmergencyRequests ?? 0}
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', marginTop: '4px' }}>
+                  No Doctor Available
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Doctor Workload Balancing (Section 9 & 16) */}
+          <div className="card" style={{ marginBottom: '28px' }}>
+            <div className="card-header">
+              <span className="card-title">
+                <Activity size={20} className="text-primary" /> Real-time Doctor Workload Balancing
+              </span>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--slate-500)' }}>
+                Deterministic distribution: normal appointments + emergency cases
+              </span>
+            </div>
+
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Doctor</th>
+                    <th>Specialization</th>
+                    <th style={{ textAlign: 'center' }}>Normal Appts (Today)</th>
+                    <th style={{ textAlign: 'center' }}>Emergency Cases (Today)</th>
+                    <th style={{ textAlign: 'center' }}>Total Workload</th>
+                    <th>Emergency Duty</th>
+                    <th>Shift Window</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics?.doctorWorkloads?.length > 0 ? (
+                    analytics.doctorWorkloads.map((doc) => (
+                      <tr key={doc.doctorId}>
+                        <td style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{doc.doctorName}</td>
+                        <td>{doc.specialization}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{doc.normalAppointmentsToday}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: '#e11d48' }}>{doc.emergencyRequestsToday}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-primary" style={{ fontSize: '0.85rem' }}>
+                            {doc.totalWorkloadToday}
+                          </span>
+                        </td>
+                        <td>
+                          {doc.emergencyDutyToday ? (
+                            <span className="badge badge-emergency">YES</span>
+                          ) : (
+                            <span className="badge badge-off-duty">NO</span>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+                          {doc.emergencyShift || 'NONE'}
+                        </td>
+                        <td>
+                          <span className={`badge ${doc.availabilityStatus === 'AVAILABLE' ? 'badge-confirmed' : 'badge-warning'}`}>
+                            {doc.availabilityStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', color: 'var(--slate-500)', padding: '20px' }}>
+                        No doctor workload records available.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section: Appointment & Emergency Trends (Section 16 & 17) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">
+                  <Calendar size={18} className="text-primary" /> Daily Consultation Trends
+                </span>
+              </div>
+              {analytics?.appointmentTrends && Object.keys(analytics.appointmentTrends).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {Object.entries(analytics.appointmentTrends).map(([date, count]) => (
+                    <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--slate-50)', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)' }}>{date}</span>
+                      <span className="badge badge-primary">{count} bookings</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate-500)', fontSize: '0.875rem' }}>
+                  No recent appointment trend data available.
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">
+                  <Siren size={18} style={{ color: '#e11d48' }} /> Daily Emergency Volume Trends
+                </span>
+              </div>
+              {analytics?.emergencyTrends && Object.keys(analytics.emergencyTrends).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {Object.entries(analytics.emergencyTrends).map(([date, count]) => (
+                    <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#fff1f2', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#9f1239' }}>{date}</span>
+                      <span className="badge badge-emergency">{count} emergencies</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate-500)', fontSize: '0.875rem' }}>
+                  No recent emergency volume data recorded.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           {/* Quick Emergency Banner on Overview */}

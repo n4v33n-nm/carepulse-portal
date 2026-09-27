@@ -37,4 +37,10 @@ public interface EmergencyRequestRepository extends JpaRepository<EmergencyReque
     long countByAssignedDoctorAndStatusAndRequestTimeBetween(Doctor doctor, String status, LocalDateTime start, LocalDateTime end);
 
     long countByAssignedDoctorAndStatusInAndRequestTimeBetween(Doctor doctor, List<String> statuses, LocalDateTime start, LocalDateTime end);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(e) FROM EmergencyRequest e WHERE e.assignedDoctor.id = :doctorId AND e.status IN ('ASSIGNED', 'IN_PROGRESS')")
+    long countActiveEmergenciesForDoctor(@org.springframework.data.repository.query.Param("doctorId") Long doctorId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(e) FROM EmergencyRequest e WHERE e.assignedDoctor.id = :doctorId AND CAST(e.requestTime AS date) = :date AND e.status != 'CANCELLED'")
+    long countEmergencyCasesForDoctorOnDate(@org.springframework.data.repository.query.Param("doctorId") Long doctorId, @org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
 }

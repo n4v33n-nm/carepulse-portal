@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Pill, PlusCircle, Calendar, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  FileText,
+  Pill,
+  PlusCircle,
+  Calendar,
+  User,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  CheckCheck,
+  Edit3,
+  XCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import api, { recordService, prescriptionService } from '../../services/api';
 import Modal from '../../components/Modal';
 
@@ -9,6 +22,13 @@ const DoctorRecords = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('RECORDS'); // 'RECORDS' | 'PRESCRIPTIONS'
+
+  // AI Verification State (Phase 5 Requirement 15)
+  const [aiGeneratingId, setAiGeneratingId] = useState(null);
+  const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
+  const [selectedRecordForAi, setSelectedRecordForAi] = useState(null);
+  const [aiReviewText, setAiReviewText] = useState('');
+  const [aiActionLoading, setAiActionLoading] = useState(false);
 
   // Record Modal
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
@@ -104,6 +124,41 @@ const DoctorRecords = () => {
     }
   };
 
+  const handleGenerateAiDraft = async (recordId) => {
+    setAiGeneratingId(recordId);
+    try {
+      await recordService.generateAiDraftSummary(recordId);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate AI summary draft');
+    } finally {
+      setAiGeneratingId(null);
+    }
+  };
+
+  const handleOpenAiReview = (record) => {
+    setSelectedRecordForAi(record);
+    setAiReviewText(record.aiDraftSummary || record.clinicalSummary || '');
+    setIsAiReviewModalOpen(true);
+  };
+
+  const handleSubmitAiReview = async (action) => {
+    if (!selectedRecordForAi) return;
+    setAiActionLoading(true);
+    try {
+      await recordService.reviewAiSummary(selectedRecordForAi.id, {
+        action,
+        editedSummary: aiReviewText,
+      });
+      setIsAiReviewModalOpen(false);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to record physician verification review');
+    } finally {
+      setAiActionLoading(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -196,10 +251,72 @@ const DoctorRecords = () => {
                   <strong>Treatment Plan:</strong> {r.treatment}
                 </div>
                 {r.consultationNotes && (
-                  <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginBottom: '10px' }}>
                     <strong>Clinical Notes:</strong> {r.consultationNotes}
                   </div>
                 )}
+
+                {/* AI Draft Summary & Doctor Verification Section (Phase 5 Requirement 15) */}
+                <div style={{ marginTop: '14px', borderTop: '1px solid var(--slate-200)', paddingTop: '12px' }}>
+                  {r.clinicalSummary ? (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 14px', borderRadius: 'var(--radius-md)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCheck size={16} /> Finalized Clinical Summary (Verified by Doctor)
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                          onClick={() => handleOpenAiReview(r)}
+                        >
+                          <Edit3 size={12} /> Edit Summary
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#166534', margin: 0, lineHeight: 1.45 }}>
+                        {r.clinicalSummary}
+                      </p>
+                    </div>
+                  ) : r.aiDraftSummary ? (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 14px', borderRadius: 'var(--radius-md)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={16} /> AI Draft Summary ({r.summaryStatus === 'REJECTED' ? 'Draft Rejected' : 'Pending Verification'})
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ fontSize: '0.8125rem' }}
+                          onClick={() => handleOpenAiReview(r)}
+                        >
+                          <ShieldCheck size={14} /> Review & Verify Draft
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#92400e', margin: '0 0 6px 0', lineHeight: 1.45, fontStyle: 'italic' }}>
+                        "{r.aiDraftSummary}"
+                      </p>
+                      <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                        ⚠️ AI-generated clinical syntheses require explicit physician verification before entering the official clinical record.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--slate-500)' }}>
+                        No clinical summary synthesized yet.
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleGenerateAiDraft(r.id)}
+                        disabled={aiGeneratingId === r.id}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Sparkles size={14} style={{ color: 'var(--primary-600)' }} />
+                        {aiGeneratingId === r.id ? 'Synthesizing...' : 'Generate AI Draft Summary'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -468,6 +585,73 @@ const DoctorRecords = () => {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* AI Clinical Summary Doctor Verification Modal (Phase 5 Requirement 15) */}
+      <Modal
+        isOpen={isAiReviewModalOpen}
+        onClose={() => setIsAiReviewModalOpen(false)}
+        title="Physician Verification — Clinical Summary"
+        maxWidth="580px"
+      >
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'var(--primary-50)', border: '1px solid var(--primary-200)', borderRadius: 'var(--radius-md)', marginBottom: '14px', fontSize: '0.8125rem', color: 'var(--primary-800)' }}>
+            <ShieldCheck size={18} style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Clinical Guardrail:</strong> AI-generated summaries cannot enter the finalized patient health record without explicit physician review. You may approve the draft as-is, edit it with clinical judgment, or reject the draft.
+            </span>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Review & Edit Clinical Summary</label>
+            <textarea
+              className="form-control"
+              rows="5"
+              placeholder="Clinical summary content..."
+              value={aiReviewText}
+              onChange={(e) => setAiReviewText(e.target.value)}
+              style={{ fontSize: '0.9375rem', lineHeight: 1.5 }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '20px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ color: '#ef4444' }}
+              onClick={() => handleSubmitAiReview('REJECT')}
+              disabled={aiActionLoading}
+            >
+              <XCircle size={15} /> Reject Draft
+            </button>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsAiReviewModalOpen(false)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleSubmitAiReview('EDIT')}
+                disabled={aiActionLoading || !aiReviewText.trim()}
+              >
+                <Edit3 size={15} /> Save Edits & Approve
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => handleSubmitAiReview('APPROVE')}
+                disabled={aiActionLoading || !aiReviewText.trim()}
+              >
+                <CheckCheck size={15} /> {aiActionLoading ? 'Verifying...' : 'Approve As-Is'}
+              </button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

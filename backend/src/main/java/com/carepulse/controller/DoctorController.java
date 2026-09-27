@@ -20,10 +20,14 @@ public class DoctorController {
 
     private final DoctorService doctorService;
     private final com.carepulse.service.UserService userService;
+    private final com.carepulse.service.SmartDoctorMatchingService smartDoctorMatchingService;
 
-    public DoctorController(DoctorService doctorService, com.carepulse.service.UserService userService) {
+    public DoctorController(DoctorService doctorService,
+                            com.carepulse.service.UserService userService,
+                            com.carepulse.service.SmartDoctorMatchingService smartDoctorMatchingService) {
         this.doctorService = doctorService;
         this.userService = userService;
+        this.smartDoctorMatchingService = smartDoctorMatchingService;
     }
 
     @GetMapping
@@ -81,5 +85,30 @@ public class DoctorController {
             @PathVariable Long id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(doctorService.getAvailableTimeSlots(id, date));
+    }
+
+    @GetMapping("/{id}/available-slots")
+    public ResponseEntity<List<LocalTime>> getAvailableSlotsAlias(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(doctorService.getAvailableTimeSlots(id, date));
+    }
+
+    @GetMapping("/match")
+    public ResponseEntity<List<com.carepulse.dto.DoctorMatchResponseDTO>> matchDoctors(
+            @RequestParam(required = false) String specialization,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time) {
+        return ResponseEntity.ok(smartDoctorMatchingService.matchDoctors(specialization, date, time));
+    }
+
+    @GetMapping("/workload")
+    public ResponseEntity<List<com.carepulse.dto.DoctorWorkloadDTO>> getDoctorWorkloadsToday() {
+        return ResponseEntity.ok(doctorService.getDoctorWorkloadsToday());
+    }
+
+    @GetMapping("/{id}/workload")
+    public ResponseEntity<com.carepulse.dto.DoctorWorkloadDTO> getDoctorWorkloadById(@PathVariable Long id) {
+        return ResponseEntity.ok(doctorService.getDoctorWorkload(id));
     }
 }

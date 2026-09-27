@@ -30,6 +30,7 @@ Designed to reflect real-world healthcare SaaS standards, CarePulse features a d
    * [In-App Notification System](#10-notification-system)
    * [Security & Immutable Audit Trail](#11-security--audit-logging)
    * [Emergency Doctor Allocation & Daily Duty Roster](#12-emergency-doctor-allocation--daily-duty-roster)
+   * [Smart Healthcare Coordination & Intelligent Scheduling](#13-smart-healthcare-coordination--intelligent-scheduling-phase-5)
 5. [Technology Stack](#-technology-stack)
 6. [System Architecture](#-system-architecture)
 7. [Database Architecture](#-database-architecture)
@@ -165,6 +166,30 @@ In conventional healthcare portals, patient engagement is frequently fragmented 
   * Dedicated dashboard metrics for physicians: Today's Emergency Cases, Completed Cases, Current Active Cases, Emergency Duty Status (`YES`/`NO`), and Shift Window.
 * **4-Step Patient Status Progression Timeline:**
   * Visual timeline backed by genuine backend timestamps: `Request Created` -> `Doctor Assigned` -> `Consultation Started` -> `Emergency Completed`.
+
+### 13. Smart Healthcare Coordination & Intelligent Scheduling (Phase 5)
+* **Smart Doctor Matching Engine:**
+  * Matches physicians based on clinical specialization, weekly availability, requested time interval containment, absence/leave records, appointment schedule conflicts, and emergency duty commitments.
+  * Workload-ranked: Sorts matching candidates by lowest active workload (`appointments + emergency cases`).
+  * Explainable rationale badges displayed to patients with strict clinical non-diagnostic disclaimers.
+* **Dynamic Slot Slicing & Cancelled Slot Instant Reuse:**
+  * Generates 30-minute consultation intervals dynamically from doctor schedule configurations without static pre-generation.
+  * Omits booked appointments and past daytime windows for today.
+  * When an appointment is cancelled, the time slot instantly re-appears in available slot listings for all patients.
+* **Priority Waitlist Engine:**
+  * If preferred consultation dates/times are fully booked, patients can join a priority waitlist (`appointment_waitlist`).
+  * When a cancellation occurs, the system queries the waitlist and dispatches high-priority in-app notifications (`SLOT_OPEN`), transitioning status from `WAITING` to `NOTIFIED`.
+* **Data-Grounded Consultation Wait-Time Estimation:**
+  * Computes estimated consultation wait times in minutes based on active appointments ahead in queue and doctor's active emergency caseload.
+* **Doctor Workload Balancing Matrix:**
+  * Comprehensive metrics tracking for physicians and administrators: Scheduled Appointments (Pending, Confirmed, Completed, Cancelled), Emergency Requests (Active, Completed), and combined clinical capacity.
+* **Physician-Verified AI Clinical Summaries:**
+  * Doctors can trigger AI draft summaries from consultation notes and diagnoses (`DRAFT_PENDING_REVIEW`).
+  * Strict physician verification gate: Doctors can `Approve As-Is`, `Save Edits & Approve`, or `Reject Draft`. Only approved summaries are committed to finalized clinical records.
+* **Unified Admin Coordination Analytics:**
+  * Real-time PostgreSQL dashboards visualizing consultation KPIs, emergency dispatch status breakdowns, doctor workload distribution matrices, and multi-day volume trends.
+* **Spring Scheduler Background Workers:**
+  * Automated cleanup of expired waitlist entries, daily appointment reminders, and stale notification pruning.
 
 ---
 

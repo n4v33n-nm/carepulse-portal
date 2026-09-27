@@ -88,13 +88,18 @@ public class MedicalRecordService {
         boolean isSelf = patientRepository.findById(patientId)
                 .map(p -> p.getUser().getEmail().equalsIgnoreCase(viewerEmail))
                 .orElse(false);
-        boolean isCaregiver = caregiverService.isAuthorizedCaregiver(patientId, viewerEmail);
+        boolean isCaregiver = caregiverService.isAuthorizedCaregiverWithPermission(patientId, viewerEmail, "VIEW_RECORDS");
 
         if (!isAdmin && !isDoctor && !isSelf && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to access records for this patient");
         }
 
-        auditLogService.log(viewerEmail, "MEDICAL_RECORD_VIEWED", "PatientRecords:" + patientId, "Viewed records for patient: " + patientId);
+        if (isAdmin && !isSelf && !isCaregiver) {
+            auditLogService.log(viewerEmail, "ADMIN_CLINICAL_AUDIT_ACCESS", "PatientRecords:" + patientId, "Administrative audit access to patient records");
+        } else {
+            auditLogService.log(viewerEmail, "MEDICAL_RECORD_VIEWED", "PatientRecords:" + patientId, "Viewed records for patient: " + patientId);
+        }
+
         return medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(patientId);
     }
 
@@ -115,7 +120,7 @@ public class MedicalRecordService {
         boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
         boolean isPatient = record.getPatient() != null && record.getPatient().getUser().getEmail().equalsIgnoreCase(callerEmail);
         boolean isAuthorDoctor = record.getDoctor() != null && record.getDoctor().getUser().getEmail().equalsIgnoreCase(callerEmail);
-        boolean isCaregiver = record.getPatient() != null && caregiverService.isAuthorizedCaregiver(record.getPatient().getId(), callerEmail);
+        boolean isCaregiver = record.getPatient() != null && caregiverService.isAuthorizedCaregiverWithPermission(record.getPatient().getId(), callerEmail, "VIEW_RECORDS");
 
         if (!isAdmin && !isDoctor && !isPatient && !isAuthorDoctor && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this medical record");
@@ -123,5 +128,69 @@ public class MedicalRecordService {
 
         auditLogService.log(callerEmail, "MEDICAL_RECORD_VIEWED", "MedicalRecord:" + id, "Viewed medical record details");
         return record;
+    }
+
+    @Transactional
+    public MedicalRecord generateAiDraftSummary(Long recordId, String doctorEmail) {
+        MedicalRecord record = getRecordById(recordId);
+        Doctor doctor = doctorRepository.findByUserEmail(doctorEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+
+        if (!record.getDoctor().getId().equals(doctor.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Only the attending doctor can generate clinical AI summary drafts");
+        }
+
+        // Section 15: AI creates a structured draft summary for physician verification
+        StringBuilder draft = new StringBuilder();
+        draft.append("Clinical Summary Draft (AI-Assisted):\n");
+        draft.append("• Diagnosis: ").append(record.getDiagnosis()).append("\n");
+        if (record.getSymptoms() != null && !record.getSymptoms().isBlank()) {
+            draft.append("• Reported Symptoms: ").append(record.getSymptoms()).append("\n");
+        }
+        if (record.getTreatment() != null && !record.getTreatment().isBlank()) {
+            draft.append("• Prescribed Treatment: ").append(record.getTreatment()).append("\n");
+        }
+        if (record.getConsultationNotes() != null && !record.getConsultationNotes().isBlank()) {
+            draft.append("• Clinical Notes: ").append(record.getConsultationNotes()).append("\n");
+        }
+        draft.append("[Physician Verification Required: Please review, modify if necessary, and approve or reject before finalizing this clinical summary.]");
+
+        record.setAiDraftSummary(draft.toString());
+        record.setSummaryStatus("PENDING_REVIEW");
+
+        MedicalRecord saved = medicalRecordRepository.save(record);
+        auditLogService.log(doctorEmail, "AI_SUMMARY_DRAFTED", "MedicalRecord:" + recordId, "Generated AI draft summary for physician review");
+        return saved;
+    }
+
+    @Transactional
+    public MedicalRecord reviewAiSummary(Long recordId, String doctorEmail, com.carepulse.dto.ReviewSummaryRequestDTO request) {
+        MedicalRecord record = getRecordById(recordId);
+        Doctor doctor = doctorRepository.findByUserEmail(doctorEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+
+        if (!record.getDoctor().getId().equals(doctor.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Only the attending doctor can review and finalize the clinical summary");
+        }
+
+        String action = request.getAction().toUpperCase();
+        if ("APPROVE".equals(action)) {
+            String summaryContent = (request.getEditedSummary() != null && !request.getEditedSummary().isBlank()) ?
+                    request.getEditedSummary() : record.getAiDraftSummary();
+            record.setClinicalSummary(summaryContent);
+            record.setSummaryStatus("APPROVED");
+        } else if ("EDIT".equals(action)) {
+            record.setClinicalSummary(request.getEditedSummary());
+            record.setSummaryStatus("APPROVED");
+        } else if ("REJECT".equals(action)) {
+            record.setSummaryStatus("REJECTED");
+            record.setAiDraftSummary(null);
+        } else {
+            throw new com.carepulse.exception.BadRequestException("Invalid summary review action: " + action);
+        }
+
+        MedicalRecord saved = medicalRecordRepository.save(record);
+        auditLogService.log(doctorEmail, "AI_SUMMARY_REVIEWED", "MedicalRecord:" + recordId, "Review action: " + action);
+        return saved;
     }
 }

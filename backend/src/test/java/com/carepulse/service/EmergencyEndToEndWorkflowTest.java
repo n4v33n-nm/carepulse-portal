@@ -122,7 +122,7 @@ class EmergencyEndToEndWorkflowTest {
         // STEP 8: Verify Emergency Duty = YES
         // Ensure today has an active roster shift for this doctor so real-time emergency duty applies
         LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
         // Clean up any pre-existing test shift for this doctor on today
         rosterRepository.findByDoctorIdAndRosterDateAndShiftName(assignedDoc.getId(), today, "TODAY_TEST_SHIFT")
                 .ifPresent(rosterRepository::delete);

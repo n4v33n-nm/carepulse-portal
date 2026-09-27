@@ -34,7 +34,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             @Param("date") LocalDate date,
             @Param("time") LocalTime time);
 
+    List<Appointment> findByAppointmentDateAndStatus(LocalDate appointmentDate, String status);
+
     long countByDoctorIdAndAppointmentDate(Long doctorId, LocalDate date);
     long countByDoctorIdAndStatus(Long doctorId, String status);
     long countByStatus(String status);
+    long countByAppointmentDate(LocalDate date);
+    long countByAppointmentDateAndStatus(LocalDate date, String status);
 }

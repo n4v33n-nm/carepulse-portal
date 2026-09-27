@@ -59,4 +59,19 @@ public class MedicalRecordController {
         com.carepulse.entity.User user = userService.getUserByEmail(authentication.getName());
         return ResponseEntity.ok(medicalRecordService.getRecordById(id, user.getEmail(), user.getRole()));
     }
+
+    @PostMapping("/{id}/ai-summary-draft")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<MedicalRecord> generateAiDraftSummary(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(medicalRecordService.generateAiDraftSummary(id, authentication.getName()));
+    }
+
+    @PatchMapping("/{id}/ai-summary-review")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<MedicalRecord> reviewAiSummary(
+            @PathVariable Long id,
+            Authentication authentication,
+            @Valid @RequestBody com.carepulse.dto.ReviewSummaryRequestDTO request) {
+        return ResponseEntity.ok(medicalRecordService.reviewAiSummary(id, authentication.getName(), request));
+    }
 }

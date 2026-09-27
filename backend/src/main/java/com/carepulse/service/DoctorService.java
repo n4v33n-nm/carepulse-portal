@@ -24,13 +24,19 @@ public class DoctorService {
     private final DoctorRepository doctorRepository;
     private final DoctorAvailabilityRepository availabilityRepository;
     private final AppointmentRepository appointmentRepository;
+    private final com.carepulse.repository.EmergencyDoctorRosterRepository emergencyRosterRepository;
+    private final com.carepulse.repository.EmergencyRequestRepository emergencyRequestRepository;
 
     public DoctorService(DoctorRepository doctorRepository,
                          DoctorAvailabilityRepository availabilityRepository,
-                         AppointmentRepository appointmentRepository) {
+                         AppointmentRepository appointmentRepository,
+                         com.carepulse.repository.EmergencyDoctorRosterRepository emergencyRosterRepository,
+                         com.carepulse.repository.EmergencyRequestRepository emergencyRequestRepository) {
         this.doctorRepository = doctorRepository;
         this.availabilityRepository = availabilityRepository;
         this.appointmentRepository = appointmentRepository;
+        this.emergencyRosterRepository = emergencyRosterRepository;
+        this.emergencyRequestRepository = emergencyRequestRepository;
     }
 
     public List<Doctor> getAllDoctors(String specialization, String query) {
@@ -101,6 +107,11 @@ public class DoctorService {
 
     public List<LocalTime> getAvailableTimeSlots(Long doctorId, LocalDate date) {
         Doctor doctor = getDoctorById(doctorId);
+        String status = doctor.getAvailabilityStatus() != null ? doctor.getAvailabilityStatus() : "AVAILABLE";
+        if ("ON_LEAVE".equalsIgnoreCase(status) || "OFF_DUTY".equalsIgnoreCase(status)) {
+            return Collections.emptyList();
+        }
+
         DayOfWeek dow = date.getDayOfWeek();
         String dayOfWeekStr = dow.name();
 
@@ -117,6 +128,8 @@ public class DoctorService {
                 .collect(Collectors.toSet());
 
         List<LocalTime> availableSlots = new ArrayList<>();
+        LocalTime now = LocalTime.now();
+        boolean isToday = date.isEqual(LocalDate.now());
 
         for (DoctorAvailability avail : availabilities) {
             if (!avail.isAvailable()) continue;
@@ -126,6 +139,12 @@ public class DoctorService {
             int duration = avail.getSlotDurationMinutes() != null ? avail.getSlotDurationMinutes() : 30;
 
             while (current.plusMinutes(duration).isBefore(end) || current.plusMinutes(duration).equals(end)) {
+                // If today, exclude slots that have already passed
+                if (isToday && current.isBefore(now)) {
+                    current = current.plusMinutes(duration);
+                    continue;
+                }
+
                 // Check if inside break
                 boolean inBreak = false;
                 if (avail.getBreakStartTime() != null && avail.getBreakEndTime() != null) {
@@ -143,5 +162,55 @@ public class DoctorService {
         }
 
         return availableSlots;
+    }
+
+    public List<com.carepulse.dto.DoctorWorkloadDTO> getDoctorWorkloadsToday() {
+        LocalDate today = LocalDate.now();
+        List<Doctor> doctors = doctorRepository.findAll();
+        List<com.carepulse.dto.DoctorWorkloadDTO> result = new ArrayList<>();
+
+        for (Doctor doc : doctors) {
+            result.add(calculateDoctorWorkload(doc, today));
+        }
+
+        result.sort(Comparator.comparingInt(com.carepulse.dto.DoctorWorkloadDTO::getTotalWorkloadToday)
+                .thenComparing(com.carepulse.dto.DoctorWorkloadDTO::getDoctorName));
+        return result;
+    }
+
+    public com.carepulse.dto.DoctorWorkloadDTO getDoctorWorkload(Long doctorId) {
+        Doctor doctor = getDoctorById(doctorId);
+        return calculateDoctorWorkload(doctor, LocalDate.now());
+    }
+
+    private com.carepulse.dto.DoctorWorkloadDTO calculateDoctorWorkload(Doctor doctor, LocalDate date) {
+        List<Appointment> dayAppts = appointmentRepository.findByDoctorAndAppointmentDateOrderByAppointmentTimeAsc(doctor, date);
+        int normalCount = (int) dayAppts.stream()
+                .filter(a -> !"CANCELLED".equalsIgnoreCase(a.getStatus()))
+                .count();
+
+        int emergencyCount = (int) emergencyRequestRepository.countEmergencyCasesForDoctorOnDate(doctor.getId(), date);
+        int activeEmergencies = (int) emergencyRequestRepository.countActiveEmergenciesForDoctor(doctor.getId());
+
+        List<com.carepulse.entity.EmergencyDoctorRoster> rosters = emergencyRosterRepository.findByDoctorIdAndRosterDate(doctor.getId(), date);
+        boolean onEmergencyDuty = rosters.stream().anyMatch(r -> "EMERGENCY_DUTY".equalsIgnoreCase(r.getDutyStatus()));
+        String shift = onEmergencyDuty && !rosters.isEmpty() ?
+                rosters.get(0).getShiftName() + " (" + rosters.get(0).getShiftStart() + " - " + rosters.get(0).getShiftEnd() + ")" : "NONE";
+
+        String status = doctor.getAvailabilityStatus() != null ? doctor.getAvailabilityStatus() : "AVAILABLE";
+        int totalWorkload = normalCount + emergencyCount;
+
+        return new com.carepulse.dto.DoctorWorkloadDTO(
+                doctor.getId(),
+                doctor.getFullName(),
+                doctor.getSpecialization(),
+                normalCount,
+                emergencyCount,
+                totalWorkload,
+                activeEmergencies,
+                status,
+                onEmergencyDuty,
+                shift
+        );
     }
 }

@@ -93,6 +93,19 @@ public class CaregiverService {
         ).isPresent();
     }
 
+    public boolean isAuthorizedCaregiverWithPermission(Long patientId, String caregiverEmail, String requiredPermission) {
+        if (patientId == null || caregiverEmail == null || caregiverEmail.isBlank()) {
+            return false;
+        }
+        return caregiverAccessRepository.findByPatientIdAndCaregiverEmailAndStatus(
+                patientId, caregiverEmail.toLowerCase().trim(), "ACTIVE"
+        ).map(access -> {
+            String perm = access.getPermission();
+            if ("FULL_ACCESS".equalsIgnoreCase(perm)) return true;
+            return requiredPermission != null && requiredPermission.equalsIgnoreCase(perm);
+        }).orElse(false);
+    }
+
     public List<CaregiverAccess> getCaregiversForPatient(String patientEmail) {
         Patient patient = patientRepository.findByUserEmail(patientEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
