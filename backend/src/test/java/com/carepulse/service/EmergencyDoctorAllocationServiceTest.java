@@ -40,6 +40,9 @@ class EmergencyDoctorAllocationServiceTest {
     @Mock
     private DoctorRepository doctorRepository;
 
+    @Mock
+    private com.carepulse.repository.AppointmentRepository appointmentRepository;
+
     @InjectMocks
     private EmergencyDoctorAllocationService allocationService;
 
@@ -100,8 +103,8 @@ class EmergencyDoctorAllocationServiceTest {
         assertNotNull(result.getAssignedDoctor());
         assertEquals("Dr. Priya Sharma", result.getAssignedDoctor().getFullName());
         assertEquals("ASSIGNED", result.getStatus());
-        assertEquals("IN_CONSULTATION", roster.getDoctorAvailabilityStatus());
-        assertEquals("IN_CONSULTATION", docGeneral.getAvailabilityStatus());
+        assertEquals("BUSY", roster.getDoctorAvailabilityStatus());
+        assertEquals("BUSY", docGeneral.getAvailabilityStatus());
     }
 
     @Test
@@ -126,7 +129,7 @@ class EmergencyDoctorAllocationServiceTest {
     }
 
     @Test
-    @DisplayName("5. Busy doctor is not selected")
+    @DisplayName("5. Busy doctor is not selected and request enters WAITING queue")
     void testBusyDoctorNotSelected() {
         // Doctor status is BUSY
         EmergencyDoctorRoster roster = new EmergencyDoctorRoster(
@@ -142,12 +145,12 @@ class EmergencyDoctorAllocationServiceTest {
 
         EmergencyRequest result = allocationService.allocateDoctor(request, today, morningTime);
 
-        assertEquals("NO_DOCTOR_AVAILABLE", result.getStatus());
+        assertEquals("WAITING", result.getStatus());
         assertNull(result.getAssignedDoctor());
     }
 
     @Test
-    @DisplayName("6. Off-duty / On-leave doctor is not selected")
+    @DisplayName("6. Off-duty / On-leave doctor is not selected and request enters WAITING queue")
     void testOffDutyDoctorNotSelected() {
         docGeneral.setAvailabilityStatus("OFF_DUTY");
         EmergencyDoctorRoster roster = new EmergencyDoctorRoster(
@@ -163,7 +166,7 @@ class EmergencyDoctorAllocationServiceTest {
 
         EmergencyRequest result = allocationService.allocateDoctor(request, today, morningTime);
 
-        assertEquals("NO_DOCTOR_AVAILABLE", result.getStatus());
+        assertEquals("WAITING", result.getStatus());
         assertNull(result.getAssignedDoctor());
     }
 
@@ -315,4 +318,60 @@ class EmergencyDoctorAllocationServiceTest {
         assertEquals("Dr. Priya Sharma", result.getAssignedDoctor().getFullName());
         assertEquals("ASSIGNED", result.getStatus());
     }
+
+    @Test
+    @DisplayName("Priority Queue: Highest priority URGENT waiting request is assigned before NORMAL")
+    void testPriorityQueueOrdering() {
+        EmergencyDoctorRoster rGeneral = new EmergencyDoctorRoster(
+                docGeneral, today, "MORNING", LocalTime.of(8, 0), LocalTime.of(14, 0), "EMERGENCY_DUTY", "AVAILABLE"
+        );
+        rGeneral.setId(102L);
+
+        when(rosterRepository.findTodayDutyForDoctor(eq(docGeneral.getId()), eq(today), any(LocalDate.class)))
+                .thenReturn(List.of(rGeneral));
+        when(rosterRepository.findByIdWithLock(102L)).thenReturn(Optional.of(rGeneral));
+
+        EmergencyRequest urgentReq = new EmergencyRequest(patient, "Cardiology", "Chest Pain - Severe");
+        urgentReq.setId(1L);
+        urgentReq.setStatus("WAITING");
+        urgentReq.setPriority("URGENT");
+
+        when(requestRepository.findByStatusOrderByPriorityDescRequestTimeAsc("WAITING"))
+                .thenReturn(List.of(urgentReq));
+        when(requestRepository.save(any(EmergencyRequest.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<EmergencyRequest> assigned = allocationService.assignWaitingRequestToDoctor(docGeneral, today, morningTime);
+
+        assertTrue(assigned.isPresent());
+        assertEquals(1L, assigned.get().getId());
+        assertEquals("ASSIGNED", assigned.get().getStatus());
+        assertEquals(docGeneral, assigned.get().getAssignedDoctor());
+    }
+
+    @Test
+    @DisplayName("Normal Appointment Conflict: Doctor in active appointment is excluded from emergency allocation")
+    void testActiveAppointmentConflictExcludesDoctor() {
+        EmergencyDoctorRoster rGeneral = new EmergencyDoctorRoster(
+                docGeneral, today, "MORNING", LocalTime.of(8, 0), LocalTime.of(14, 0), "EMERGENCY_DUTY", "AVAILABLE"
+        );
+        rGeneral.setId(102L);
+
+        when(rosterRepository.findAvailableEmergencyRosters(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(rGeneral));
+
+        // Mock that docGeneral has an active appointment ongoing right now (10:00 AM)
+        com.carepulse.entity.Appointment activeAppt = new com.carepulse.entity.Appointment();
+        when(appointmentRepository.findActiveAppointmentsForDoctorAtTime(eq(docGeneral.getId()), eq(today), eq(morningTime)))
+                .thenReturn(List.of(activeAppt));
+        when(requestRepository.save(any(EmergencyRequest.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmergencyRequest req = new EmergencyRequest(patient, "General", "Mild dizziness");
+
+        EmergencyRequest result = allocationService.allocateDoctor(req, today, morningTime);
+
+        // Since the only on-duty doctor is currently in an active appointment, request enters WAITING queue
+        assertEquals("WAITING", result.getStatus());
+        assertNull(result.getAssignedDoctor());
+    }
 }
+

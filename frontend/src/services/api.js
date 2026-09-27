@@ -21,18 +21,40 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for token expiry handling
+// Response interceptor for token expiry and standardized error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // If unauthorized and not already on login
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && window.location.pathname !== '/') {
-        localStorage.removeItem('carepulse_token');
-        localStorage.removeItem('carepulse_user');
-        window.location.href = '/login?expired=true';
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+
+      if (status === 401) {
+        error.userMessage = data?.message || 'Your session has expired. Please sign in again.';
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && window.location.pathname !== '/') {
+          localStorage.removeItem('carepulse_token');
+          localStorage.removeItem('carepulse_user');
+          window.location.href = '/login?expired=true';
+        }
+      } else if (status === 403) {
+        error.userMessage = data?.message || 'Access denied: You do not have permission to perform this action.';
+      } else if (status === 404) {
+        error.userMessage = data?.message || 'The requested resource was not found.';
+      } else if (status === 409) {
+        error.userMessage = data?.message || 'A data conflict occurred. Please refresh and try again.';
+      } else if (status === 400 || status === 422) {
+        error.userMessage = data?.message || 'Validation error: Please verify your input and try again.';
+      } else if (status >= 500) {
+        error.userMessage = data?.message || 'A server error occurred. Please try again later.';
+      } else {
+        error.userMessage = data?.message || 'An unexpected error occurred.';
       }
+    } else if (error.request) {
+      error.userMessage = 'Unable to connect to CarePulse server. Please check your network connection.';
+    } else {
+      error.userMessage = error.message || 'An unexpected error occurred.';
     }
+
     return Promise.reject(error);
   }
 );
@@ -117,9 +139,11 @@ export const emergencyService = {
   getAssignedEmergencyRequests: () => api.get('/emergency-requests/assigned'),
   updateEmergencyStatus: (id, data) => api.patch(`/emergency-requests/${id}/status`, data),
   getMyEmergencyDuty: () => api.get('/emergency-roster/my-duty'),
+  getDoctorTodayDutySummary: () => api.get('/doctor/emergency-duty/today'),
   updateMyDoctorStatus: (data) => api.put('/emergency-roster/my-status', data),
 
   // Admin endpoints
+  getAvailableDoctorsForRoster: () => api.get('/admin/emergency-roster/doctors'),
   getRoster: (params) => api.get('/admin/emergency-roster', { params }),
   getRosterRange: (params) => api.get('/admin/emergency-roster/range', { params }),
   createRoster: (data) => api.post('/admin/emergency-roster', data),
@@ -127,6 +151,12 @@ export const emergencyService = {
   deleteRoster: (id) => api.delete(`/admin/emergency-roster/${id}`),
   getAllEmergencyRequests: () => api.get('/admin/emergency-requests'),
   getEmergencyStats: () => api.get('/admin/emergency-stats'),
+  generateRoster: (data) => api.post('/admin/emergency-roster/generate', data),
+  getEmergencyAnalytics: (params) => api.get('/admin/emergency-analytics', { params }),
+};
+
+export const healthService = {
+  checkHealth: () => api.get('/health'),
 };
 
 export default api;

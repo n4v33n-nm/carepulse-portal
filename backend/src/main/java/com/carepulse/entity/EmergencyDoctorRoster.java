@@ -10,6 +10,12 @@ import java.time.LocalTime;
     name = "emergency_doctor_roster",
     uniqueConstraints = {
         @UniqueConstraint(name = "uq_emergency_roster_doc_date_shift", columnNames = {"doctor_id", "roster_date", "shift_name"})
+    },
+    indexes = {
+        @Index(name = "idx_edr_roster_date", columnList = "roster_date"),
+        @Index(name = "idx_edr_doctor_id", columnList = "doctor_id"),
+        @Index(name = "idx_edr_duty_status", columnList = "duty_status"),
+        @Index(name = "idx_edr_avail_status", columnList = "doctor_availability_status")
     }
 )
 public class EmergencyDoctorRoster {
@@ -78,6 +84,29 @@ public class EmergencyDoctorRoster {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Determines whether the given date and time falls within this shift window.
+     * Accurately handles normal shifts and cross-midnight shifts (e.g., 20:00 to 08:00 next morning).
+     */
+    public boolean isActiveAt(LocalDate checkDate, LocalTime checkTime) {
+        if (checkDate == null || checkTime == null || rosterDate == null || shiftStart == null || shiftEnd == null) {
+            return false;
+        }
+
+        LocalDateTime startDateTime = LocalDateTime.of(rosterDate, shiftStart);
+        LocalDateTime endDateTime;
+
+        if (shiftStart.isBefore(shiftEnd)) {
+            endDateTime = LocalDateTime.of(rosterDate, shiftEnd);
+        } else {
+            // Crosses midnight or 24-hr shift
+            endDateTime = LocalDateTime.of(rosterDate.plusDays(1), shiftEnd);
+        }
+
+        LocalDateTime checkDateTime = LocalDateTime.of(checkDate, checkTime);
+        return (!checkDateTime.isBefore(startDateTime)) && checkDateTime.isBefore(endDateTime);
     }
 
     /**

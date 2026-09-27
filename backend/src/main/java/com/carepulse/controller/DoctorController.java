@@ -19,9 +19,11 @@ import java.util.List;
 public class DoctorController {
 
     private final DoctorService doctorService;
+    private final com.carepulse.service.UserService userService;
 
-    public DoctorController(DoctorService doctorService) {
+    public DoctorController(DoctorService doctorService, com.carepulse.service.UserService userService) {
         this.doctorService = doctorService;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -45,7 +47,13 @@ public class DoctorController {
     @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
     public ResponseEntity<Doctor> updateDoctorProfile(
             @PathVariable Long id,
+            org.springframework.security.core.Authentication authentication,
             @RequestBody UserProfileUpdateRequest request) {
+        Doctor doctor = doctorService.getDoctorById(id);
+        com.carepulse.entity.User caller = userService.getUserByEmail(authentication.getName());
+        if (!"ADMIN".equalsIgnoreCase(caller.getRole()) && !doctor.getUser().getEmail().equalsIgnoreCase(caller.getEmail())) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to modify another doctor's profile");
+        }
         return ResponseEntity.ok(doctorService.updateDoctorProfile(id, request));
     }
 
@@ -58,7 +66,13 @@ public class DoctorController {
     @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
     public ResponseEntity<List<DoctorAvailability>> updateAvailability(
             @PathVariable Long id,
+            org.springframework.security.core.Authentication authentication,
             @RequestBody List<DoctorAvailabilityRequest> requests) {
+        Doctor doctor = doctorService.getDoctorById(id);
+        com.carepulse.entity.User caller = userService.getUserByEmail(authentication.getName());
+        if (!"ADMIN".equalsIgnoreCase(caller.getRole()) && !doctor.getUser().getEmail().equalsIgnoreCase(caller.getEmail())) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to modify another doctor's availability");
+        }
         return ResponseEntity.ok(doctorService.saveOrUpdateAvailability(id, requests));
     }
 

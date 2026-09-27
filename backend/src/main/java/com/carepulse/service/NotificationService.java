@@ -31,6 +31,17 @@ public class NotificationService {
     }
 
     @Transactional
+    public void markAsRead(Long notificationId, Long userId, String role) {
+        Notification n = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new com.carepulse.exception.ResourceNotFoundException("Notification not found with ID: " + notificationId));
+        if (!"ADMIN".equalsIgnoreCase(role) && (n.getUser() == null || !n.getUser().getId().equals(userId))) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to mark this notification as read");
+        }
+        n.setRead(true);
+        notificationRepository.save(n);
+    }
+
+    @Transactional
     public void markAsRead(Long notificationId) {
         notificationRepository.findById(notificationId).ifPresent(n -> {
             n.setRead(true);

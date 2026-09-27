@@ -79,9 +79,18 @@ public class CaregiverService {
                 "CAREGIVER"
         );
 
-        auditLogService.log(patientEmail, "CAREGIVER_ACCESS_GRANTED", "Caregiver:" + saved.getId(), "Granted to: " + request.getCaregiverEmail());
+        auditLogService.log(patientEmail, "CAREGIVER_GRANTED", "Caregiver:" + saved.getId(), "Granted to: " + request.getCaregiverEmail());
 
         return saved;
+    }
+
+    public boolean isAuthorizedCaregiver(Long patientId, String caregiverEmail) {
+        if (patientId == null || caregiverEmail == null || caregiverEmail.isBlank()) {
+            return false;
+        }
+        return caregiverAccessRepository.findByPatientIdAndCaregiverEmailAndStatus(
+                patientId, caregiverEmail.toLowerCase().trim(), "ACTIVE"
+        ).isPresent();
     }
 
     public List<CaregiverAccess> getCaregiversForPatient(String patientEmail) {
@@ -114,7 +123,7 @@ public class CaregiverService {
                 "CAREGIVER"
         );
 
-        auditLogService.log(patientEmail, "CAREGIVER_ACCESS_REVOKED", "Caregiver:" + saved.getId(), "Revoked access for: " + access.getCaregiverEmail());
+        auditLogService.log(patientEmail, "CAREGIVER_REVOKED", "Caregiver:" + saved.getId(), "Revoked access for: " + access.getCaregiverEmail());
 
         return saved;
     }

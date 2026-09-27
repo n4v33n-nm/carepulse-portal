@@ -150,6 +150,218 @@ const PatientDashboard = () => {
         </div>
       </div>
 
+      {/* Active Emergency Assistance Live Status Banner & 4-Step Patient Timeline (Requirements 8 & 14) */}
+      {(() => {
+        const latestEmergency = emergencyRequests.length > 0 ? emergencyRequests[0] : null;
+        if (!latestEmergency || latestEmergency.status === 'CANCELLED') {
+          return null;
+        }
+
+        const isWaiting = latestEmergency.status === 'WAITING';
+        const isAssigned = latestEmergency.status === 'ASSIGNED';
+        const isInProgress = latestEmergency.status === 'IN_PROGRESS';
+        const isCompleted = latestEmergency.status === 'COMPLETED';
+
+        return (
+          <div
+            className="card"
+            style={{
+              marginBottom: '28px',
+              borderLeft: isWaiting ? '5px solid #f59e0b' : isCompleted ? '5px solid #10b981' : '5px solid #e11d48',
+              background: isWaiting ? '#fffbeb' : isCompleted ? '#f0fdf4' : '#fff1f2',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: isWaiting ? '#fef3c7' : isCompleted ? '#dcfce7' : '#ffe4e6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isWaiting ? '#b45309' : isCompleted ? '#16a34a' : '#e11d48',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Siren size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: isWaiting ? '#92400e' : isCompleted ? '#166534' : '#9f1239', margin: 0 }}>
+                      Emergency Assistance Tracking #{latestEmergency.id}
+                    </h4>
+                    <span className={`badge badge-${latestEmergency.status.toLowerCase()}`}>
+                      {latestEmergency.status}
+                    </span>
+                    {latestEmergency.priority && (
+                      <span className="badge badge-emergency" style={{ fontSize: '0.75rem' }}>
+                        PRIORITY: {latestEmergency.priority}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)', marginTop: '2px' }}>
+                    Category: <strong>{latestEmergency.category || 'General'}</strong> • Symptoms: {latestEmergency.description || 'Emergency care requested'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={fetchDashboardData}
+                title="Refresh Status"
+              >
+                <Clock size={14} /> Refresh Status
+              </button>
+            </div>
+
+            {/* Waiting Queue Warning Banner (Requirement 8) */}
+            {isWaiting && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '18px', color: '#991b1b', fontSize: '0.8125rem', lineHeight: 1.45 }}>
+                <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertCircle size={16} /> All emergency-duty doctors are currently occupied.
+                </div>
+                <div>
+                  Your request is queued with <strong>{latestEmergency.priority || 'NORMAL'}</strong> priority and will be assigned immediately when a physician finishes their consultation.
+                </div>
+                <div style={{ marginTop: '4px', fontWeight: 700 }}>
+                  FOR LIFE-THREATENING EMERGENCIES: Please call local emergency services (911 / 112 / 108) immediately.
+                </div>
+              </div>
+            )}
+
+            {/* 4-Step Patient Status Timeline with Actual Backend Timestamps (Requirement 14) */}
+            <div style={{ background: 'white', border: '1px solid var(--slate-200)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--slate-500)', marginBottom: '16px' }}>
+                Real-Time Clinical Progression Timeline
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', position: 'relative' }}>
+                {/* Step 1: Request Created */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8125rem' }}>
+                      ✓
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--slate-900)' }}>
+                      Request Created
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', paddingLeft: '36px' }}>
+                    {latestEmergency.requestTime ? new Date(latestEmergency.requestTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', paddingLeft: '36px' }}>
+                    Triage dispatched
+                  </div>
+                </div>
+
+                {/* Step 2: Doctor Assigned */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: (isAssigned || isInProgress || isCompleted) ? '#10b981' : isWaiting ? '#f59e0b' : 'var(--slate-300)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.8125rem',
+                      }}
+                    >
+                      {(isAssigned || isInProgress || isCompleted) ? '✓' : isWaiting ? '⏳' : '○'}
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: (isAssigned || isInProgress || isCompleted) ? 'var(--slate-900)' : 'var(--slate-500)' }}>
+                      Doctor Assigned
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', paddingLeft: '36px' }}>
+                    {latestEmergency.assignedTime
+                      ? new Date(latestEmergency.assignedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : isWaiting ? 'Waiting in Queue...' : 'Pending'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: latestEmergency.doctorName ? 'var(--primary-700)' : 'var(--slate-500)', fontWeight: 600, paddingLeft: '36px' }}>
+                    {latestEmergency.doctorName ? `${latestEmergency.doctorName} (${latestEmergency.doctorSpecialization})` : 'Awaiting physician'}
+                  </div>
+                </div>
+
+                {/* Step 3: Consultation Started */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: (isInProgress || isCompleted) ? '#10b981' : isAssigned ? '#0284c7' : 'var(--slate-300)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.8125rem',
+                      }}
+                    >
+                      {(isInProgress || isCompleted) ? '✓' : isAssigned ? '●' : '○'}
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: (isInProgress || isCompleted) ? 'var(--slate-900)' : 'var(--slate-500)' }}>
+                      Consultation Started
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', paddingLeft: '36px' }}>
+                    {latestEmergency.startedTime
+                      ? new Date(latestEmergency.startedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : isAssigned ? 'Doctor alerted' : 'Pending start'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', paddingLeft: '36px' }}>
+                    {isInProgress ? 'Consultation in progress' : isCompleted ? 'Started' : 'Awaiting clinical start'}
+                  </div>
+                </div>
+
+                {/* Step 4: Emergency Completed */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: isCompleted ? '#10b981' : 'var(--slate-300)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.8125rem',
+                      }}
+                    >
+                      {isCompleted ? '✓' : '○'}
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: isCompleted ? 'var(--slate-900)' : 'var(--slate-500)' }}>
+                      Emergency Completed
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', paddingLeft: '36px' }}>
+                    {latestEmergency.completedTime
+                      ? new Date(latestEmergency.completedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : 'Pending'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: isCompleted ? '#059669' : 'var(--slate-500)', fontWeight: isCompleted ? 600 : 400, paddingLeft: '36px' }}>
+                    {isCompleted ? (latestEmergency.doctorNotes ? `Notes: ${latestEmergency.doctorNotes}` : 'Care delivered') : 'Under treatment'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card">

@@ -4,7 +4,17 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "emergency_requests")
+@Table(
+    name = "emergency_requests",
+    indexes = {
+        @Index(name = "idx_er_patient_id", columnList = "patient_id"),
+        @Index(name = "idx_er_assigned_doctor_id", columnList = "assigned_doctor_id"),
+        @Index(name = "idx_er_status", columnList = "status"),
+        @Index(name = "idx_er_priority", columnList = "priority"),
+        @Index(name = "idx_er_request_time", columnList = "request_time"),
+        @Index(name = "idx_er_created_at", columnList = "created_at")
+    }
+)
 public class EmergencyRequest {
 
     @Id
@@ -25,11 +35,17 @@ public class EmergencyRequest {
     @Column(name = "assigned_time")
     private LocalDateTime assignedTime;
 
+    @Column(name = "started_time")
+    private LocalDateTime startedTime;
+
+    @Column(name = "completed_time")
+    private LocalDateTime completedTime;
+
     @Column(nullable = false, length = 30)
     private String status = "WAITING"; // WAITING, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED, NO_DOCTOR_AVAILABLE
 
     @Column(nullable = false, length = 30)
-    private String priority = "EMERGENCY";
+    private String priority = "NORMAL"; // NORMAL, URGENT
 
     @Column(length = 50)
     private String category = "General"; // General, Cardiology, Dermatology, Neurology, Orthopedics, Pediatrics, Other
@@ -54,7 +70,16 @@ public class EmergencyRequest {
         this.category = category != null && !category.isBlank() ? category : "General";
         this.description = description;
         this.status = "WAITING";
-        this.priority = "EMERGENCY";
+        this.priority = "NORMAL";
+        this.requestTime = LocalDateTime.now();
+    }
+
+    public EmergencyRequest(Patient patient, String category, String description, String priority) {
+        this.patient = patient;
+        this.category = category != null && !category.isBlank() ? category : "General";
+        this.description = description;
+        this.status = "WAITING";
+        this.priority = priority != null && !priority.isBlank() ? priority.toUpperCase() : "NORMAL";
         this.requestTime = LocalDateTime.now();
     }
 
@@ -111,6 +136,22 @@ public class EmergencyRequest {
 
     public void setAssignedTime(LocalDateTime assignedTime) {
         this.assignedTime = assignedTime;
+    }
+
+    public LocalDateTime getStartedTime() {
+        return startedTime;
+    }
+
+    public void setStartedTime(LocalDateTime startedTime) {
+        this.startedTime = startedTime;
+    }
+
+    public LocalDateTime getCompletedTime() {
+        return completedTime;
+    }
+
+    public void setCompletedTime(LocalDateTime completedTime) {
+        this.completedTime = completedTime;
     }
 
     public String getStatus() {

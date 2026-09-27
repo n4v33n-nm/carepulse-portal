@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 const DoctorDashboard = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
+  const [todayDuty, setTodayDuty] = useState(null);
   const [emergencyDuties, setEmergencyDuties] = useState([]);
   const [assignedEmergencies, setAssignedEmergencies] = useState([]);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('AVAILABLE');
@@ -41,17 +42,19 @@ const DoctorDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [apptRes, dutyRes, emergRes] = await Promise.all([
+      const [apptRes, dutySummaryRes, dutyRes, emergRes] = await Promise.all([
         appointmentService.getMyAppointments(),
+        emergencyService.getDoctorTodayDutySummary().catch(() => ({ data: null })),
         emergencyService.getMyEmergencyDuty().catch(() => ({ data: [] })),
         emergencyService.getAssignedEmergencyRequests().catch(() => ({ data: [] })),
       ]);
       setAppointments(apptRes.data || []);
-      const duties = dutyRes.data || [];
-      setEmergencyDuties(duties);
-      if (duties.length > 0 && duties[0].doctorAvailabilityStatus) {
-        setMyAvailabilityStatus(duties[0].doctorAvailabilityStatus);
+      const duty = dutySummaryRes.data;
+      setTodayDuty(duty);
+      if (duty && duty.status) {
+        setMyAvailabilityStatus(duty.status);
       }
+      setEmergencyDuties(dutyRes.data || []);
       setAssignedEmergencies(emergRes.data || []);
     } catch (err) {
       console.error('Failed to load doctor dashboard data:', err);
@@ -142,42 +145,68 @@ const DoctorDashboard = () => {
       </div>
 
       {/* Emergency Duty Roster & Real-time Physician Availability */}
-      <div className="card" style={{ marginBottom: '28px', borderLeft: emergencyDuties.length > 0 ? '5px solid #e11d48' : '5px solid var(--slate-300)' }}>
+      <div className="card" style={{ marginBottom: '28px', borderLeft: (todayDuty?.isEmergencyDuty || emergencyDuties.length > 0) ? '5px solid #e11d48' : '5px solid var(--slate-300)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div
               style={{
-                width: '44px',
-                height: '44px',
+                width: '48px',
+                height: '48px',
                 borderRadius: '50%',
-                background: emergencyDuties.length > 0 ? '#ffe4e6' : 'var(--slate-100)',
+                background: (todayDuty?.isEmergencyDuty || emergencyDuties.length > 0) ? '#ffe4e6' : 'var(--slate-100)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: emergencyDuties.length > 0 ? '#e11d48' : 'var(--slate-500)',
+                color: (todayDuty?.isEmergencyDuty || emergencyDuties.length > 0) ? '#e11d48' : 'var(--slate-500)',
               }}
             >
-              <Siren size={22} />
+              <Siren size={24} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '1.2rem', margin: 0 }}>
-                  Today's Emergency Duty
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--slate-900)' }}>
+                  Emergency Duty
                 </h3>
-                {emergencyDuties.length > 0 ? (
-                  <span className="badge badge-emergency">EMERGENCY DUTY: YES</span>
+                {(todayDuty?.isEmergencyDuty || emergencyDuties.length > 0) ? (
+                  <span className="badge badge-emergency" style={{ fontSize: '0.85rem' }}>EMERGENCY DUTY: YES</span>
                 ) : (
-                  <span className="badge badge-off-duty">EMERGENCY DUTY: NO</span>
+                  <span className="badge badge-off-duty" style={{ fontSize: '0.85rem' }}>EMERGENCY DUTY: NO</span>
                 )}
               </div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)', marginTop: '4px' }}>
-                {emergencyDuties.length > 0 ? (
-                  <span>
-                    <strong>Assigned Shift:</strong> {emergencyDuties.map(d => `${d.shiftName} (${d.shiftStart?.slice(0, 5)} - ${d.shiftEnd?.slice(0, 5)})`).join(', ')}
-                  </span>
-                ) : (
-                  <span>No emergency shift rostered for today by Administration.</span>
-                )}
+
+              {/* Workload Metrics from Backend (Requirement 13) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginTop: '14px', minWidth: '400px' }}>
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--slate-200)' }}>
+                  <div style={{ fontSize: '0.71875rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase' }}>Today's Emergency Cases</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--slate-900)' }}>
+                    {todayDuty?.todayTotalCases ?? 0}
+                  </div>
+                </div>
+
+                <div style={{ background: '#f0fdf4', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.71875rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>Completed Cases</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#15803d' }}>
+                    {todayDuty?.todayCompletedCases ?? 0}
+                  </div>
+                </div>
+
+                <div style={{ background: '#fff1f2', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid #fecdd3' }}>
+                  <div style={{ fontSize: '0.71875rem', fontWeight: 700, color: '#9f1239', textTransform: 'uppercase' }}>Current Active</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#e11d48' }}>
+                    {todayDuty?.todayActiveCases ?? assignedEmergencies.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').length}
+                  </div>
+                </div>
+
+                <div style={{ background: '#faf5ff', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid #e9d5ff' }}>
+                  <div style={{ fontSize: '0.71875rem', fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase' }}>Shift Window</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px' }}>
+                    {todayDuty?.shiftStart && todayDuty?.shiftEnd
+                      ? `${todayDuty.shiftStart.slice(0, 5)} - ${todayDuty.shiftEnd.slice(0, 5)}`
+                      : emergencyDuties.length > 0
+                        ? `${emergencyDuties[0].shiftStart?.slice(0, 5)} - ${emergencyDuties[0].shiftEnd?.slice(0, 5)}`
+                        : 'Off-Duty'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -185,7 +214,7 @@ const DoctorDashboard = () => {
           {/* Doctor Current Availability Status Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--slate-700)' }}>
-              Current Status:
+              Availability Status:
             </span>
             <select
               className="form-control form-control-sm"
@@ -199,9 +228,6 @@ const DoctorDashboard = () => {
               <option value="OFF_DUTY">OFF_DUTY</option>
               <option value="ON_LEAVE">ON_LEAVE</option>
             </select>
-            <span className={`badge badge-${myAvailabilityStatus.toLowerCase()}`}>
-              {myAvailabilityStatus}
-            </span>
           </div>
         </div>
       </div>
@@ -211,7 +237,7 @@ const DoctorDashboard = () => {
         <div className="card" style={{ marginBottom: '28px', borderLeft: '5px solid #e11d48' }}>
           <div className="card-header">
             <span className="card-title">
-              <Siren size={20} style={{ color: '#e11d48' }} /> Assigned Emergency Cases ({assignedEmergencies.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').length} Active)
+              <Siren size={20} style={{ color: '#e11d48' }} /> Emergency Requests ({assignedEmergencies.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').length} Active)
             </span>
           </div>
 
@@ -230,16 +256,16 @@ const DoctorDashboard = () => {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--slate-900)' }}>
-                        {req.patientName}
+                        Patient: {req.patientName}
                       </span>
-                      <span className="badge badge-emergency">{req.category || 'General'}</span>
-                      <span className={`badge badge-${req.status.toLowerCase()}`}>{req.status}</span>
+                      <span className="badge badge-emergency">Category: {req.category || 'General'}</span>
+                      <span className={`badge badge-${req.status.toLowerCase()}`}>Status: {req.status}</span>
                     </div>
                     <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)', marginTop: '4px' }}>
                       <strong>Contact:</strong> {req.patientPhone || 'N/A'} • <strong>Blood:</strong> {req.patientBloodGroup || 'N/A'} • <strong>Emergency Contact:</strong> {req.emergencyContact || 'N/A'}
                     </div>
                     <div style={{ fontSize: '0.8125rem', color: 'var(--slate-500)', marginTop: '2px' }}>
-                      <strong>Time:</strong> {new Date(req.requestTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <strong>Symptoms:</strong> {req.description || 'Emergency assistance requested'}
+                      <strong>Time:</strong> {new Date(req.requestTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <strong>Details:</strong> {req.description || 'Emergency assistance requested'}
                     </div>
                   </div>
 
@@ -249,10 +275,11 @@ const DoctorDashboard = () => {
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
+                        style={{ background: '#e11d48', borderColor: '#e11d48' }}
                         onClick={() => handleUpdateEmergencyStatus(req.id, 'IN_PROGRESS')}
                         disabled={emergencyActionLoading === req.id}
                       >
-                        <HeartPulse size={14} /> Start Consultation
+                        <HeartPulse size={14} /> Start Emergency
                       </button>
                     )}
 
@@ -263,7 +290,7 @@ const DoctorDashboard = () => {
                         style={{ background: '#10b981', color: 'white' }}
                         onClick={() => setCompletingId(req.id)}
                       >
-                        <Check size={14} /> Complete Case
+                        <Check size={14} /> Complete Emergency
                       </button>
                     )}
 

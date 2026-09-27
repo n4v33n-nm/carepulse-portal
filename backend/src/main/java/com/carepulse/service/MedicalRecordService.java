@@ -22,17 +22,20 @@ public class MedicalRecordService {
     private final DoctorRepository doctorRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
+    private final CaregiverService caregiverService;
 
     public MedicalRecordService(MedicalRecordRepository medicalRecordRepository,
                                 PatientRepository patientRepository,
                                 DoctorRepository doctorRepository,
                                 NotificationService notificationService,
-                                AuditLogService auditLogService) {
+                                AuditLogService auditLogService,
+                                CaregiverService caregiverService) {
         this.medicalRecordRepository = medicalRecordRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
+        this.caregiverService = caregiverService;
     }
 
     @Transactional
@@ -76,6 +79,21 @@ public class MedicalRecordService {
     }
 
     public List<MedicalRecord> getRecordsForPatientId(Long patientId, String viewerEmail) {
+        return getRecordsForPatientId(patientId, viewerEmail, null);
+    }
+
+    public List<MedicalRecord> getRecordsForPatientId(Long patientId, String viewerEmail, String role) {
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
+        boolean isSelf = patientRepository.findById(patientId)
+                .map(p -> p.getUser().getEmail().equalsIgnoreCase(viewerEmail))
+                .orElse(false);
+        boolean isCaregiver = caregiverService.isAuthorizedCaregiver(patientId, viewerEmail);
+
+        if (!isAdmin && !isDoctor && !isSelf && !isCaregiver) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to access records for this patient");
+        }
+
         auditLogService.log(viewerEmail, "MEDICAL_RECORD_VIEWED", "PatientRecords:" + patientId, "Viewed records for patient: " + patientId);
         return medicalRecordRepository.findByPatientIdOrderByRecordDateDesc(patientId);
     }
@@ -89,5 +107,21 @@ public class MedicalRecordService {
     public MedicalRecord getRecordById(Long id) {
         return medicalRecordRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Medical record not found with ID: " + id));
+    }
+
+    public MedicalRecord getRecordById(Long id, String callerEmail, String role) {
+        MedicalRecord record = getRecordById(id);
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
+        boolean isPatient = record.getPatient() != null && record.getPatient().getUser().getEmail().equalsIgnoreCase(callerEmail);
+        boolean isAuthorDoctor = record.getDoctor() != null && record.getDoctor().getUser().getEmail().equalsIgnoreCase(callerEmail);
+        boolean isCaregiver = record.getPatient() != null && caregiverService.isAuthorizedCaregiver(record.getPatient().getId(), callerEmail);
+
+        if (!isAdmin && !isDoctor && !isPatient && !isAuthorDoctor && !isCaregiver) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this medical record");
+        }
+
+        auditLogService.log(callerEmail, "MEDICAL_RECORD_VIEWED", "MedicalRecord:" + id, "Viewed medical record details");
+        return record;
     }
 }

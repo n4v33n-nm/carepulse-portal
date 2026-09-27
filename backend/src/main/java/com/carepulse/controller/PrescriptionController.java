@@ -16,9 +16,11 @@ import java.util.List;
 public class PrescriptionController {
 
     private final PrescriptionService prescriptionService;
+    private final com.carepulse.service.UserService userService;
 
-    public PrescriptionController(PrescriptionService prescriptionService) {
+    public PrescriptionController(PrescriptionService prescriptionService, com.carepulse.service.UserService userService) {
         this.prescriptionService = prescriptionService;
+        this.userService = userService;
     }
 
     @PostMapping
@@ -37,9 +39,12 @@ public class PrescriptionController {
     }
 
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
-    public ResponseEntity<List<Prescription>> getPrescriptionsForPatient(@PathVariable Long patientId) {
-        return ResponseEntity.ok(prescriptionService.getPrescriptionsForPatientId(patientId));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Prescription>> getPrescriptionsForPatient(
+            @PathVariable Long patientId,
+            Authentication authentication) {
+        com.carepulse.entity.User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(prescriptionService.getPrescriptionsForPatientId(patientId, user.getEmail(), user.getRole()));
     }
 
     @GetMapping("/doctor/my")
@@ -49,7 +54,9 @@ public class PrescriptionController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Prescription> getPrescriptionById(@PathVariable Long id) {
-        return ResponseEntity.ok(prescriptionService.getPrescriptionById(id));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Prescription> getPrescriptionById(@PathVariable Long id, Authentication authentication) {
+        com.carepulse.entity.User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(prescriptionService.getPrescriptionById(id, user.getEmail(), user.getRole()));
     }
 }

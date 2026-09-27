@@ -1,8 +1,10 @@
 package com.carepulse.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class EmergencyRosterRequestDTO {
 
@@ -10,12 +12,15 @@ public class EmergencyRosterRequestDTO {
     private Long doctorId;
 
     @NotNull(message = "Roster date is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate rosterDate;
 
     private String shiftName = "MORNING"; // MORNING, EVENING, NIGHT, CUSTOM
 
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime shiftStart;
 
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime shiftEnd;
 
     private String dutyStatus = "EMERGENCY_DUTY"; // EMERGENCY_DUTY, NOT_ASSIGNED
@@ -51,6 +56,12 @@ public class EmergencyRosterRequestDTO {
         this.rosterDate = rosterDate;
     }
 
+    public void setRosterDate(String dateStr) {
+        if (dateStr != null && !dateStr.isBlank()) {
+            this.rosterDate = LocalDate.parse(dateStr.trim());
+        }
+    }
+
     public String getShiftName() {
         return shiftName;
     }
@@ -67,12 +78,28 @@ public class EmergencyRosterRequestDTO {
         this.shiftStart = shiftStart;
     }
 
+    public void setShiftStart(String timeStr) {
+        if (timeStr != null && !timeStr.isBlank()) {
+            String clean = timeStr.trim();
+            if (clean.length() == 5) clean = clean + ":00";
+            this.shiftStart = LocalTime.parse(clean, DateTimeFormatter.ofPattern("HH:mm[:ss]"));
+        }
+    }
+
     public LocalTime getShiftEnd() {
         return shiftEnd;
     }
 
     public void setShiftEnd(LocalTime shiftEnd) {
         this.shiftEnd = shiftEnd;
+    }
+
+    public void setShiftEnd(String timeStr) {
+        if (timeStr != null && !timeStr.isBlank()) {
+            String clean = timeStr.trim();
+            if (clean.length() == 5) clean = clean + ":00";
+            this.shiftEnd = LocalTime.parse(clean, DateTimeFormatter.ofPattern("HH:mm[:ss]"));
+        }
     }
 
     public String getDutyStatus() {

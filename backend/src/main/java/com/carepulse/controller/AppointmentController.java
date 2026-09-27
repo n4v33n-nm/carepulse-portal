@@ -48,8 +48,9 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Appointment> getAppointmentById(@PathVariable Long id) {
-        return ResponseEntity.ok(appointmentService.getAppointmentById(id));
+    public ResponseEntity<Appointment> getAppointmentById(@PathVariable Long id, Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(appointmentService.getAppointmentById(id, user.getEmail(), user.getRole()));
     }
 
     @PutMapping("/{id}/status")
@@ -57,7 +58,8 @@ public class AppointmentController {
             @PathVariable Long id,
             Authentication authentication,
             @Valid @RequestBody AppointmentStatusUpdateRequest request) {
-        return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, authentication.getName(), request));
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, user.getEmail(), user.getRole(), request));
     }
 
     @DeleteMapping("/{id}")
@@ -65,9 +67,10 @@ public class AppointmentController {
             @PathVariable Long id,
             Authentication authentication,
             @RequestParam(required = false, defaultValue = "Cancelled by user") String reason) {
+        User user = userService.getUserByEmail(authentication.getName());
         AppointmentStatusUpdateRequest req = new AppointmentStatusUpdateRequest();
         req.setStatus("CANCELLED");
         req.setCancellationReason(reason);
-        return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, authentication.getName(), req));
+        return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, user.getEmail(), user.getRole(), req));
     }
 }

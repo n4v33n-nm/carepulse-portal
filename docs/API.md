@@ -18,6 +18,8 @@ Authorization: Bearer <jwt-token>
 7. [Notifications (`/api/notifications`)](#7-notifications)
 8. [AI Health Companion (`/api/ai`)](#8-ai-health-companion)
 9. [Platform Administration & Auditing (`/api/admin` & `/api/audit-logs`)](#9-platform-administration--auditing)
+10. [System Health & Liveness (`/api/health`)](#10-system-health--liveness)
+11. [Error Handling & Security Architecture](#11-error-handling--security-architecture)
 
 ---
 
@@ -720,7 +722,179 @@ Removes a doctor from emergency duty for that roster date.
 
 ---
 
-### `GET /api/admin/emergency-roster/stats`
-Retrieves daily emergency triage request status counts (`WAITING`, `ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `NO_DOCTOR_AVAILABLE`).
+### `GET /api/admin/emergency-stats`
+Retrieves daily emergency triage request status counts (`WAITING`, `ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `NO_DOCTOR_AVAILABLE`).
 * **Auth Requirement:** JWT Bearer
 * **Allowed Roles:** `ADMIN`
+
+---
+
+### `POST /api/admin/emergency-roster/generate`
+Auto-generates a balanced, deterministic daily emergency physician roster for a selected date.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Request Example:**
+```json
+{
+  "rosterDate": "2026-09-28",
+  "doctorsPerShift": 1
+}
+```
+* **Algorithm Highlights:**
+  - Evaluates past 7-day emergency shift counts (fair rotation).
+  - Evaluates scheduled appointment load on target date.
+  - Enforces mandatory rest rule (no morning shift following a night shift).
+  - Skips physicians marked `ON_LEAVE`.
+  - Preserves existing assignments without duplicates.
+* **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 105,
+    "doctorId": 2,
+    "doctorName": "Dr. Priya Sharma",
+    "doctorSpecialization": "Cardiology",
+    "rosterDate": "2026-09-28",
+    "shiftName": "MORNING",
+    "shiftStart": "08:00:00",
+    "shiftEnd": "14:00:00",
+    "dutyStatus": "EMERGENCY_DUTY",
+    "doctorAvailabilityStatus": "AVAILABLE",
+    "activeEmergencyCasesCount": 0
+  },
+  {
+    "id": 106,
+    "doctorId": 3,
+    "doctorName": "Dr. Kumar Sangakara",
+    "doctorSpecialization": "Neurology",
+    "rosterDate": "2026-09-28",
+    "shiftName": "EVENING",
+    "shiftStart": "14:00:00",
+    "shiftEnd": "20:00:00",
+    "dutyStatus": "EMERGENCY_DUTY",
+    "doctorAvailabilityStatus": "AVAILABLE",
+    "activeEmergencyCasesCount": 0
+  },
+  {
+    "id": 107,
+    "doctorId": 1,
+    "doctorName": "Dr. Arun Kumar",
+    "doctorSpecialization": "General Medicine",
+    "rosterDate": "2026-09-28",
+    "shiftName": "NIGHT",
+    "shiftStart": "20:00:00",
+    "shiftEnd": "08:00:00",
+    "dutyStatus": "EMERGENCY_DUTY",
+    "doctorAvailabilityStatus": "AVAILABLE",
+    "activeEmergencyCasesCount": 0
+  }
+]
+```
+
+---
+
+### `GET /api/admin/emergency-analytics`
+Retrieves comprehensive emergency department statistics and individual doctor caseload balancing data from PostgreSQL.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `ADMIN`
+* **Query Parameters:** `?date=YYYY-MM-DD` (optional, defaults to current date)
+* **Response Example (200 OK):**
+```json
+{
+  "date": "2026-09-27",
+  "totalRequests": 12,
+  "waitingRequests": 1,
+  "assignedRequests": 3,
+  "inProgressRequests": 2,
+  "completedRequests": 6,
+  "cancelledRequests": 0,
+  "noDoctorAvailableRequests": 0,
+  "doctorWorkloads": [
+    {
+      "doctorId": 1,
+      "doctorName": "Dr. Sarah Jenkins",
+      "specialization": "Cardiology",
+      "currentStatus": "AVAILABLE",
+      "emergencyDutyToday": true,
+      "shiftName": "MORNING",
+      "shiftHours": "08:00 - 14:00",
+      "todayTotalCases": 3,
+      "todayCompletedCases": 2,
+      "todayActiveCases": 1,
+      "totalPast7DaysShifts": 2
+    }
+  ]
+}
+```
+
+---
+
+## 10. System Health & Liveness
+
+### `GET /api/health`
+Performs an active liveness and readiness probe, verifying application run-state and PostgreSQL database connectivity via standard connection validation without exposing internal credentials.
+* **Auth Requirement:** None (Public)
+* **Allowed Roles:** Any (Unauthenticated)
+* **Response Example (200 OK - Healthy):**
+```json
+{
+  "status": "UP",
+  "database": "UP",
+  "service": "CarePulse Portal",
+  "timestamp": "2026-09-27T19:30:00Z"
+}
+```
+* **Response Example (503 Service Unavailable - Degraded):**
+```json
+{
+  "status": "DOWN",
+  "database": "DOWN",
+  "service": "CarePulse Portal",
+  "timestamp": "2026-09-27T19:30:00Z"
+}
+```
+
+---
+
+## 11. Error Handling & Security Architecture
+
+### Standardized Error Response Format
+All errors returned by the CarePulse REST API follow a uniform, sanitized JSON schema managed centrally via `GlobalExceptionHandler` (`@RestControllerAdvice`). Stack traces, SQL commands, and internal class names are strictly suppressed from all client payloads.
+
+```json
+{
+  "timestamp": "2026-09-27T19:30:00Z",
+  "status": 400,
+  "error": "Validation Error",
+  "message": "Validation failed for one or more fields",
+  "path": "/api/appointments",
+  "fieldErrors": {
+    "doctorId": "Doctor ID is required",
+    "appointmentDate": "Appointment date must be today or in the future"
+  }
+}
+```
+
+### Standard HTTP Status Codes
+
+| Status Code | Error Classification | Scenario |
+|:---|:---|:---|
+| **`200 OK`** | Success | Request succeeded. |
+| **`400 Bad Request`** | `Validation Error` / `Bad Request` | Malformed JSON, missing required fields, or validation constraint violation. |
+| **`401 Unauthorized`** | `Unauthorized` | Missing, malformed, or expired JWT bearer token. |
+| **`403 Forbidden`** | `Access Denied` / `Forbidden` | User lacks role authority (`JwtAccessDeniedHandler`) or fails resource-level ownership checks. |
+| **`404 Not Found`** | `Not Found` | Requested patient, doctor, appointment, record, or roster not found. |
+| **`409 Conflict`** | `Conflict` / `Data Integrity Error` | Doctor double-booking, patient schedule collision, or duplicate unique DB constraints. |
+| **`500 Internal Error`** | `Internal Server Error` | Unexpected server failure. Details are logged securely via SLF4J, masked from client. |
+| **`503 Unavailable`** | `Service Unavailable` | Health check probe failure or degraded infrastructure. |
+
+### Resource-Level Ownership Rules
+1. **Patient Profiles (`/api/patients/{id}`)**: Patients may only view and edit their own profile. Caregivers may view authorized dependent patients. Doctors and Admins may view patient records according to role permissions.
+2. **Doctor Profiles & Availability (`/api/doctors/{id}`)**: Doctors may only edit their own profile bio and availability slots. Admins have platform-wide override privileges.
+3. **Medical Records (`/api/records/**`)**: Patients may only access their own records. Caregivers with active authorization can access assigned dependent records. Doctors can access records they authored or consultation records for authorized patients.
+4. **Prescriptions (`/api/prescriptions/**`)**: Only licensed DOCTOR users may issue prescriptions. Patients and authorized caregivers can view their own prescriptions.
+5. **Appointments (`/api/appointments/**`)**: Patients can view and cancel their own appointments. Doctors can view and manage appointments assigned to them. Double-booking conflicts return HTTP 409.
+6. **Notifications (`/api/notifications/{id}/read`)**: Only the recipient user owning the notification can mark it as read.
+7. **Emergency Requests (`/api/emergency-requests/**`)**: Patients can view their own emergency cases; assigned doctors can view and transition cases assigned directly to them.
+
+

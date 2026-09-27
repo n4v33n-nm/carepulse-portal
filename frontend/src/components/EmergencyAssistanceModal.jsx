@@ -15,6 +15,7 @@ import { emergencyService } from '../services/api';
 
 const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
   const [category, setCategory] = useState('General');
+  const [priority, setPriority] = useState('NORMAL');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -30,6 +31,7 @@ const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       const res = await emergencyService.createEmergencyRequest({
         category,
+        priority,
         description: description.trim(),
       });
       setAllocatedResult(res.data);
@@ -102,7 +104,7 @@ const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
         </div>
 
-        {/* State 1: Allocated Success or No Doctor Available */}
+        {/* State 1: Allocated Success, Waiting Queue, or No Doctor Available */}
         {allocatedResult ? (
           <div>
             {allocatedResult.status === 'ASSIGNED' ? (
@@ -159,6 +161,30 @@ const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
                   Dr. {allocatedResult.doctorName} has been immediately alerted to your emergency case (#{allocatedResult.id}). Please keep your phone reachable.
                 </p>
               </div>
+            ) : allocatedResult.status === 'WAITING' ? (
+              <div
+                style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '20px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e', fontWeight: 700, marginBottom: '8px' }}>
+                  <Clock size={20} style={{ color: '#b45309' }} />
+                  <span>Placed in Priority Emergency Waiting Queue (#{allocatedResult.id})</span>
+                </div>
+                <p style={{ fontSize: '0.875rem', color: '#78350f', marginBottom: '12px', lineHeight: 1.5 }}>
+                  All emergency-duty physicians are currently occupied with ongoing emergencies. Your request has been queued with <strong>{allocatedResult.priority || 'NORMAL'}</strong> priority.
+                </p>
+                <div style={{ background: 'white', border: '1px solid #fef3c7', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '14px', fontSize: '0.8125rem', color: '#92400e' }}>
+                  <strong>Queue Behavior:</strong> The instant any rostered physician finishes their active emergency consultation, the system will automatically allocate your request.
+                </div>
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', padding: '12px 16px', fontSize: '0.8125rem', color: '#991b1b' }}>
+                  <strong>EMERGENCY HOTLINE:</strong> If your condition is life-threatening, do not wait in queue. Call <strong>911 / 112 / 108</strong> or visit your nearest hospital emergency department immediately.
+                </div>
+              </div>
             ) : (
               <div
                 style={{
@@ -174,10 +200,10 @@ const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
                   <span>No Emergency-Duty Doctor is Currently Available</span>
                 </div>
                 <p style={{ fontSize: '0.875rem', color: '#991b1b', marginBottom: '14px', lineHeight: 1.5 }}>
-                  All scheduled emergency doctors for today are currently in active consultation or off-duty.
+                  No physicians are scheduled for emergency duty for this shift.
                 </p>
                 <div style={{ background: 'white', border: '1px solid #fee2e2', borderRadius: 'var(--radius-md)', padding: '14px', fontSize: '0.8125rem', color: '#7f1d1d' }}>
-                  <strong>Next Action:</strong> Please call your local emergency medical hotline immediately or visit the nearest hospital emergency department.
+                  <strong>Next Action:</strong> Please call your local emergency medical hotline immediately (911 / 112 / 108) or visit the nearest hospital emergency department.
                 </div>
               </div>
             )}
@@ -217,6 +243,65 @@ const EmergencyAssistanceModal = ({ isOpen, onClose, onSuccess }) => {
               </select>
               <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '4px' }}>
                 The allocation algorithm automatically prioritizes on-duty specialists matching this category.
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Priority Level <span style={{ color: '#e11d48' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <label
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: priority === 'NORMAL' ? '2px solid var(--primary-600)' : '1px solid var(--slate-200)',
+                    background: priority === 'NORMAL' ? 'var(--primary-50)' : 'white',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="NORMAL"
+                    checked={priority === 'NORMAL'}
+                    onChange={() => setPriority('NORMAL')}
+                  />
+                  <span>Normal (Standard Urgent)</span>
+                </label>
+                <label
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: priority === 'URGENT' ? '2px solid #e11d48' : '1px solid var(--slate-200)',
+                    background: priority === 'URGENT' ? '#fff1f2' : 'white',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="URGENT"
+                    checked={priority === 'URGENT'}
+                    onChange={() => setPriority('URGENT')}
+                  />
+                  <span style={{ color: '#be123c' }}>Urgent (High Priority Queue)</span>
+                </label>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '4px' }}>
+                Administrative queue priority. Urgent cases are dispatched first when physicians become available.
               </div>
             </div>
 

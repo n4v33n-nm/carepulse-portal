@@ -37,8 +37,9 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<Map<String, String>> markRead(@PathVariable Long id) {
-        notificationService.markAsRead(id);
+    public ResponseEntity<Map<String, String>> markRead(@PathVariable Long id, Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        notificationService.markAsRead(id, user.getId(), user.getRole());
         return ResponseEntity.ok(Map.of("message", "Marked as read"));
     }
 

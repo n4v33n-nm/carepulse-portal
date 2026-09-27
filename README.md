@@ -138,19 +138,33 @@ In conventional healthcare portals, patient engagement is frequently fragmented 
 * **Role-Based Access Control (RBAC):** Strict controller-level authorization (`@PreAuthorize`) enforcing `PATIENT`, `DOCTOR`, and `ADMIN` boundaries.
 * **HIPAA-Ready Audit Trail:** Immutable system logs capturing user email, timestamp, IP address, target entity, and exact system action.
 
-### 12. Emergency Doctor Allocation & Daily Duty Roster
-* **Daily Dynamic Roster:** Physicians are assigned to emergency duty on a day-by-day basis by administrators across defined shifts (`MORNING`, `EVENING`, `NIGHT`, or `CUSTOM`). No physician is permanently hardcoded.
-* **Single-Click Patient Emergency Triage:** Emergency patients do not browse directories or wait for appointment slots. Clicking **Emergency Assistance** immediately invokes the allocation engine.
-* **Deterministic 5-Step Allocation Algorithm:**
-  1. Identifies the active calendar date and shift window (including cross-midnight shifts spanning `20:00 - 08:00`).
-  2. Queries active emergency duty physicians.
-  3. Filters candidates to ensure real-time status is `AVAILABLE` (excluding `BUSY`, `IN_CONSULTATION`, `OFF_DUTY`, and `ON_LEAVE`).
-  4. Prioritizes matching medical specialization (e.g. Cardiology, Neurology, Orthopedics, Pediatrics, General Medicine).
-  5. Selects the physician with the lowest active emergency caseload, breaking ties deterministically by earliest availability.
-* **Pessimistic Concurrency & Collision Lock:** Utilizes JPA `@Lock(LockModeType.PESSIMISTIC_WRITE)` (`SELECT FOR UPDATE`) on the candidate physician's roster record inside an atomic `@Transactional` boundary, preventing race conditions and simultaneous double-allocation.
-* **Graceful Fallback (`NO_DOCTOR_AVAILABLE`):** If no on-duty physician is available, the system immediately returns a non-blocking warning directing the patient to emergency helplines (911 / 112).
-* **Physician Command Center:** On-duty doctors can view assigned emergency cases in real-time, toggle their clinical availability status, and transition case status (`IN_PROGRESS`, `COMPLETED`).
-* **Admin Roster Governance:** Full calendar roster management to schedule, edit, or remove physicians from emergency duty, and review dispatch logs.
+### 12. Emergency Doctor Allocation & Daily Duty Roster (Phase 3 Intelligent Architecture)
+* **Automatic Daily Roster Generation & Deterministic Rotation:**
+  * Administrators can click **[Generate Today's Roster]** or **[Generate Future Roster]** to automatically construct a balanced daily emergency duty roster across shifts (`MORNING`, `EVENING`, `NIGHT`).
+  * Rotation algorithm balances 7-day historical emergency duty counts (favoring physicians with fewer recent assignments), excludes doctors on approved leave, considers normal appointment workloads, and enforces mandatory rest rules (night shift doctors are never assigned next-day morning shifts).
+* **Multi-Factor Doctor Workload Balancing & Specialization Routing:**
+  * When a patient submits an emergency request, candidate physicians on active duty are scored deterministically based on specialization match (+1000 pts for requested emergency category: Cardiology, Neurology, Orthopedics, Pediatrics, General Medicine), current active emergency cases (-200 pts/case), total daily emergency cases (-50 pts/case), and normal appointment workload (-100 pts/case).
+  * If no matching specialist is available, the system gracefully routes to another available on-duty emergency doctor.
+* **Real-Time Doctor Availability Lifecycle:**
+  * Backend strictly governs availability transitions: `AVAILABLE` -> `BUSY` (upon assignment) -> `IN_CONSULTATION` (when doctor starts) -> `AVAILABLE` (when doctor completes consultation and remaining active cases = 0).
+  * Frontend cannot force invalid transitions. Manual status change to `AVAILABLE` is rejected while active emergency cases remain.
+* **Normal Appointment + Emergency Conflict Awareness:**
+  * Doctors are not made unavailable for an entire multi-hour emergency shift simply because they have a scheduled appointment. Availability evaluates actual active consultations at the moment of request.
+* **Priority Waiting Queue (`WAITING`):**
+  * Administrative priority support (`URGENT` vs `NORMAL`).
+  * If all rostered doctors are occupied, requests are safely enqueued in a priority waiting queue with prominent disclaimers advising local emergency helplines (911/112) for critical emergencies.
+  * When any doctor completes a consultation, the system automatically dispatches the highest-priority waiting request to that doctor.
+* **Pessimistic Concurrency & Transactional Locking:**
+  * Uses JPA `@Lock(LockModeType.PESSIMISTIC_WRITE)` (`SELECT FOR UPDATE`) inside an atomic `@Transactional` boundary to eliminate double-booking race conditions during simultaneous emergency requests.
+* **Configurable Assignment Timeout & Recovery Scheduler:**
+  * Background scheduler checks for assigned requests not started within `emergency.assignment.timeout.minutes` (default: 10 min), automatically returning them to the waiting queue and re-evaluating doctor availability.
+* **Real-Time Admin Emergency Analytics & Doctor Workload View:**
+  * Admin dashboard features full real-time database analytics: Today's Requests, Assigned, In Progress, Completed, Waiting, and No Doctor Available.
+  * Doctor Workload distribution table displays each doctor's active cases, completed cases, current status, and duty hours.
+* **Doctor Workload Command Center:**
+  * Dedicated dashboard metrics for physicians: Today's Emergency Cases, Completed Cases, Current Active Cases, Emergency Duty Status (`YES`/`NO`), and Shift Window.
+* **4-Step Patient Status Progression Timeline:**
+  * Visual timeline backed by genuine backend timestamps: `Request Created` -> `Doctor Assigned` -> `Consultation Started` -> `Emergency Completed`.
 
 ---
 

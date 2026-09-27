@@ -23,6 +23,8 @@ public class EmergencyRequestResponseDTO {
 
     private LocalDateTime requestTime;
     private LocalDateTime assignedTime;
+    private LocalDateTime startedTime;
+    private LocalDateTime completedTime;
     private String status;
     private String priority;
     private String category;
@@ -58,6 +60,8 @@ public class EmergencyRequestResponseDTO {
 
         dto.setRequestTime(req.getRequestTime());
         dto.setAssignedTime(req.getAssignedTime());
+        dto.setStartedTime(req.getStartedTime());
+        dto.setCompletedTime(req.getCompletedTime());
         dto.setStatus(req.getStatus());
         dto.setPriority(req.getPriority());
         dto.setCategory(req.getCategory());
@@ -172,6 +176,22 @@ public class EmergencyRequestResponseDTO {
 
     public void setAssignedTime(LocalDateTime assignedTime) {
         this.assignedTime = assignedTime;
+    }
+
+    public LocalDateTime getStartedTime() {
+        return startedTime;
+    }
+
+    public void setStartedTime(LocalDateTime startedTime) {
+        this.startedTime = startedTime;
+    }
+
+    public LocalDateTime getCompletedTime() {
+        return completedTime;
+    }
+
+    public void setCompletedTime(LocalDateTime completedTime) {
+        this.completedTime = completedTime;
     }
 
     public String getStatus() {

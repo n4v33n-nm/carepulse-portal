@@ -16,9 +16,12 @@ public class EmergencyRosterResponseDTO {
     private String doctorQualification;
     private Double doctorRating;
 
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate rosterDate;
     private String shiftName;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
     private LocalTime shiftStart;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
     private LocalTime shiftEnd;
     private String dutyStatus;
     private String doctorAvailabilityStatus;

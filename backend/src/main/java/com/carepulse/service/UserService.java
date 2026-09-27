@@ -149,15 +149,23 @@ public class UserService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail().toLowerCase().trim(), request.getPassword())
-        );
+        String cleanEmail = request.getEmail() != null ? request.getEmail().toLowerCase().trim() : "";
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(cleanEmail, request.getPassword())
+            );
+        } catch (org.springframework.security.authentication.BadCredentialsException ex) {
+            auditLogService.log(cleanEmail, "LOGIN_FAILURE", "Auth", "Failed login attempt: invalid credentials");
+            throw ex;
+        }
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
+        User user = userRepository.findByEmail(cleanEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (!user.isActive()) {
+            auditLogService.log(cleanEmail, "LOGIN_FAILURE", "Auth", "Failed login attempt: account is disabled");
             throw new BadRequestException("Account is disabled. Please contact system administrator.");
         }
 
@@ -182,7 +190,7 @@ public class UserService {
         }
 
         String token = tokenProvider.generateToken(authentication, user.getRole(), user.getId());
-        auditLogService.log(user.getEmail(), "LOGIN", "Auth", "User logged in successfully");
+        auditLogService.log(user.getEmail(), "LOGIN_SUCCESS", "Auth", "User logged in successfully");
 
         return new AuthResponse(
                 token,

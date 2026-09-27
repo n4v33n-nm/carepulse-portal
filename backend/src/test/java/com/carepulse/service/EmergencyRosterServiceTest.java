@@ -78,7 +78,7 @@ class EmergencyRosterServiceTest {
         assertEquals(1L, response.getDoctorId());
         assertEquals("MORNING", response.getShiftName());
         assertEquals(today, response.getRosterDate());
-        verify(auditLogService).log(eq("admin@carepulse.com"), eq("EMERGENCY_ROSTER_CREATED"), anyString(), anyString());
+        verify(auditLogService).log(eq("admin@carepulse.com"), eq("ADMIN_ASSIGNED_EMERGENCY_DUTY"), anyString(), anyString());
     }
 
     @Test
@@ -114,7 +114,7 @@ class EmergencyRosterServiceTest {
         // Test delete
         rosterService.deleteRosterEntry(20L, "admin@carepulse.com");
         verify(rosterRepository).delete(roster);
-        verify(auditLogService).log(eq("admin@carepulse.com"), eq("EMERGENCY_ROSTER_DELETED"), anyString(), anyString());
+        verify(auditLogService).log(eq("admin@carepulse.com"), eq("ADMIN_REMOVED_EMERGENCY_DUTY"), anyString(), anyString());
     }
 
     @Test
@@ -138,5 +138,42 @@ class EmergencyRosterServiceTest {
 
         assertEquals("BUSY", updatedDoc.getAvailabilityStatus());
         verify(doctorRepository).save(doctor);
+    }
+
+    @Test
+    @DisplayName("Admin can fetch active doctors for emergency roster dropdown")
+    void testGetDoctorsForRoster() {
+        when(doctorRepository.findAll()).thenReturn(List.of(doctor));
+
+        List<com.carepulse.dto.DoctorRosterOptionDTO> options = rosterService.getDoctorsForRoster();
+
+        assertNotNull(options);
+        assertEquals(1, options.size());
+        assertEquals("Dr. Sarah Jenkins", options.get(0).getName());
+        assertEquals("Cardiology", options.get(0).getSpecialization());
+        assertEquals("AVAILABLE", options.get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("Doctor can query structured today's emergency duty summary")
+    void testGetDoctorTodayDutySummary() {
+        when(doctorRepository.findByUserEmail("dr.jenkins@carepulse.com")).thenReturn(Optional.of(doctor));
+
+        EmergencyDoctorRoster duty = new EmergencyDoctorRoster(
+                doctor, today, "MORNING", LocalTime.of(8, 0), LocalTime.of(14, 0), "EMERGENCY_DUTY", "AVAILABLE"
+        );
+        when(rosterRepository.findTodayDutyForDoctor(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(duty));
+        when(requestRepository.countByAssignedDoctorAndStatusIn(eq(doctor), anyList())).thenReturn(2L);
+
+        com.carepulse.dto.DoctorTodayDutyDTO summary = rosterService.getDoctorTodayDutySummary("dr.jenkins@carepulse.com");
+
+        assertNotNull(summary);
+        assertTrue(summary.getIsEmergencyDuty());
+        assertEquals("MORNING", summary.getShift());
+        assertEquals("08:00", summary.getShiftStart());
+        assertEquals("14:00", summary.getShiftEnd());
+        assertEquals("AVAILABLE", summary.getStatus());
+        assertEquals(2L, summary.getEmergencyRequestsCount());
     }
 }

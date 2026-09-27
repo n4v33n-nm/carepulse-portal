@@ -201,8 +201,10 @@ CREATE TABLE IF NOT EXISTS emergency_requests (
     assigned_doctor_id BIGINT REFERENCES doctors(id) ON DELETE SET NULL,
     request_time TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     assigned_time TIMESTAMP WITHOUT TIME ZONE,
+    started_time TIMESTAMP WITHOUT TIME ZONE,
+    completed_time TIMESTAMP WITHOUT TIME ZONE,
     status VARCHAR(30) NOT NULL DEFAULT 'WAITING' CHECK (status IN ('WAITING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_DOCTOR_AVAILABLE')),
-    priority VARCHAR(30) NOT NULL DEFAULT 'EMERGENCY',
+    priority VARCHAR(30) NOT NULL DEFAULT 'NORMAL' CHECK (priority IN ('NORMAL', 'URGENT', 'EMERGENCY')),
     category VARCHAR(50) DEFAULT 'General',
     description TEXT,
     doctor_notes TEXT,
@@ -213,5 +215,7 @@ CREATE TABLE IF NOT EXISTS emergency_requests (
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_patient ON emergency_requests(patient_id);
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_doctor ON emergency_requests(assigned_doctor_id);
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_status ON emergency_requests(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_priority ON emergency_requests(priority);
 CREATE INDEX IF NOT EXISTS idx_emergency_requests_time ON emergency_requests(request_time DESC);
+CREATE INDEX IF NOT EXISTS idx_emergency_requests_created_at ON emergency_requests(created_at DESC);
 

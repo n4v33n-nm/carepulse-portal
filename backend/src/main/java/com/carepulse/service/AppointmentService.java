@@ -25,26 +25,40 @@ public class AppointmentService {
     private final DoctorRepository doctorRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
+    private final CaregiverService caregiverService;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientRepository patientRepository,
                               DoctorRepository doctorRepository,
                               NotificationService notificationService,
-                              AuditLogService auditLogService) {
+                              AuditLogService auditLogService,
+                              CaregiverService caregiverService) {
         this.appointmentRepository = appointmentRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
+        this.caregiverService = caregiverService;
     }
 
     @Transactional
     public Appointment bookAppointment(String patientEmail, AppointmentRequest request) {
+        if (request.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException("Cannot book an appointment for a past date");
+        }
+        if (request.getAppointmentDate().isEqual(LocalDate.now()) && request.getAppointmentTime().isBefore(java.time.LocalTime.now())) {
+            throw new BadRequestException("Cannot book an appointment for a past time slot today");
+        }
+
         Patient patient = patientRepository.findByUserEmail(patientEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for email: " + patientEmail));
 
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + request.getDoctorId()));
+
+        if ("ON_LEAVE".equalsIgnoreCase(doctor.getAvailabilityStatus())) {
+            throw new BadRequestException("Dr. " + doctor.getFullName() + " is currently on leave and unavailable for booking");
+        }
 
         // Double-booking check: Doctor
         List<Appointment> doctorConflicts = appointmentRepository.findActiveAppointmentsForDoctorAtTime(
@@ -116,11 +130,54 @@ public class AppointmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with ID: " + id));
     }
 
+    public Appointment getAppointmentById(Long id, String callerEmail, String role) {
+        Appointment appointment = getAppointmentById(id);
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return appointment;
+        }
+        if (appointment.getPatient() != null && appointment.getPatient().getUser().getEmail().equalsIgnoreCase(callerEmail)) {
+            return appointment;
+        }
+        if (appointment.getDoctor() != null && appointment.getDoctor().getUser().getEmail().equalsIgnoreCase(callerEmail)) {
+            return appointment;
+        }
+        if (appointment.getPatient() != null && caregiverService.isAuthorizedCaregiver(appointment.getPatient().getId(), callerEmail)) {
+            return appointment;
+        }
+        throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this appointment");
+    }
+
     @Transactional
     public Appointment updateAppointmentStatus(Long id, String userEmail, AppointmentStatusUpdateRequest request) {
+        return updateAppointmentStatus(id, userEmail, null, request);
+    }
+
+    @Transactional
+    public Appointment updateAppointmentStatus(Long id, String userEmail, String role, AppointmentStatusUpdateRequest request) {
         Appointment appointment = getAppointmentById(id);
         String oldStatus = appointment.getStatus();
         String newStatus = request.getStatus().toUpperCase();
+
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+        boolean isDoctor = appointment.getDoctor() != null && appointment.getDoctor().getUser().getEmail().equalsIgnoreCase(userEmail);
+        boolean isPatient = appointment.getPatient() != null && appointment.getPatient().getUser().getEmail().equalsIgnoreCase(userEmail);
+        boolean isCaregiver = appointment.getPatient() != null && caregiverService.isAuthorizedCaregiver(appointment.getPatient().getId(), userEmail);
+
+        if (!isAdmin) {
+            if ("CONFIRMED".equalsIgnoreCase(newStatus) || "COMPLETED".equalsIgnoreCase(newStatus)) {
+                if (!isDoctor) {
+                    throw new org.springframework.security.access.AccessDeniedException("Only the treating physician or administrator can confirm or complete an appointment");
+                }
+            } else if ("CANCELLED".equalsIgnoreCase(newStatus)) {
+                if (!isPatient && !isDoctor && !isCaregiver) {
+                    throw new org.springframework.security.access.AccessDeniedException("You do not have permission to cancel this appointment");
+                }
+            } else {
+                if (!isDoctor) {
+                    throw new org.springframework.security.access.AccessDeniedException("Unauthorized to modify appointment status to " + newStatus);
+                }
+            }
+        }
 
         appointment.setStatus(newStatus);
         if (request.getConsultationNotes() != null) {
@@ -155,7 +212,11 @@ public class AppointmentService {
             notificationService.createNotification(appointment.getPatient().getUser(), "Consultation Completed", "Your consultation with Dr. " + appointment.getDoctor().getFullName() + " is completed. Check your medical records and prescriptions.", "APPOINTMENT");
         }
 
-        auditLogService.log(userEmail, "APPOINTMENT_STATUS_UPDATED", "Appointment:" + updated.getId(), "Status changed from " + oldStatus + " to " + newStatus);
+        if ("CANCELLED".equalsIgnoreCase(newStatus)) {
+            auditLogService.log(userEmail, "APPOINTMENT_CANCELLED", "Appointment:" + updated.getId(), "Appointment cancelled. Reason: " + request.getCancellationReason());
+        } else {
+            auditLogService.log(userEmail, "APPOINTMENT_STATUS_UPDATED", "Appointment:" + updated.getId(), "Status changed from " + oldStatus + " to " + newStatus);
+        }
 
         return updated;
     }

@@ -2,6 +2,8 @@ package com.carepulse.config;
 
 import com.carepulse.entity.*;
 import com.carepulse.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,8 @@ import java.util.List;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
@@ -61,7 +65,7 @@ public class DataInitializer implements CommandLineRunner {
             return; // Data already seeded
         }
 
-        System.out.println("Seeding CarePulse demo data into PostgreSQL...");
+        log.info("Seeding CarePulse demo data into PostgreSQL...");
 
         // 1. Admin
         User adminUser = new User("admin@carepulse.com", passwordEncoder.encode("Admin@123"), "ADMIN");

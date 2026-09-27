@@ -16,9 +16,11 @@ import java.util.List;
 public class MedicalRecordController {
 
     private final MedicalRecordService medicalRecordService;
+    private final com.carepulse.service.UserService userService;
 
-    public MedicalRecordController(MedicalRecordService medicalRecordService) {
+    public MedicalRecordController(MedicalRecordService medicalRecordService, com.carepulse.service.UserService userService) {
         this.medicalRecordService = medicalRecordService;
+        this.userService = userService;
     }
 
     @PostMapping
@@ -37,11 +39,12 @@ public class MedicalRecordController {
     }
 
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<MedicalRecord>> getRecordsByPatientId(
             @PathVariable Long patientId,
             Authentication authentication) {
-        return ResponseEntity.ok(medicalRecordService.getRecordsForPatientId(patientId, authentication.getName()));
+        com.carepulse.entity.User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(medicalRecordService.getRecordsForPatientId(patientId, user.getEmail(), user.getRole()));
     }
 
     @GetMapping("/doctor/my")
@@ -51,7 +54,9 @@ public class MedicalRecordController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MedicalRecord> getRecordById(@PathVariable Long id) {
-        return ResponseEntity.ok(medicalRecordService.getRecordById(id));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<MedicalRecord> getRecordById(@PathVariable Long id, Authentication authentication) {
+        com.carepulse.entity.User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(medicalRecordService.getRecordById(id, user.getEmail(), user.getRole()));
     }
 }

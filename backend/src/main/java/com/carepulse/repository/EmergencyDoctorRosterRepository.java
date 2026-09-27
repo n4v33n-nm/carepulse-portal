@@ -17,6 +17,10 @@ public interface EmergencyDoctorRosterRepository extends JpaRepository<Emergency
 
     List<EmergencyDoctorRoster> findByRosterDateOrderByShiftStartAsc(LocalDate rosterDate);
 
+    List<EmergencyDoctorRoster> findByRosterDate(LocalDate rosterDate);
+
+    boolean existsByRosterDate(LocalDate rosterDate);
+
     List<EmergencyDoctorRoster> findByRosterDateBetweenOrderByRosterDateAscShiftStartAsc(LocalDate start, LocalDate end);
 
     List<EmergencyDoctorRoster> findByDoctorIdAndRosterDate(Long doctorId, LocalDate rosterDate);
@@ -25,16 +29,22 @@ public interface EmergencyDoctorRosterRepository extends JpaRepository<Emergency
 
     boolean existsByDoctorIdAndRosterDateAndShiftName(Long doctorId, LocalDate rosterDate, String shiftName);
 
+    long countByDoctorIdAndRosterDateBetween(Long doctorId, LocalDate start, LocalDate end);
+
+    List<EmergencyDoctorRoster> findByRosterDateAndDutyStatus(LocalDate rosterDate, String dutyStatus);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM EmergencyDoctorRoster r WHERE r.id = :id")
     Optional<EmergencyDoctorRoster> findByIdWithLock(@Param("id") Long id);
 
     @Query("SELECT r FROM EmergencyDoctorRoster r JOIN FETCH r.doctor d " +
            "WHERE (r.rosterDate = :today OR (r.rosterDate = :yesterday AND r.shiftStart > r.shiftEnd)) " +
-           "AND r.dutyStatus = 'EMERGENCY_DUTY' " +
-           "AND r.doctorAvailabilityStatus = 'AVAILABLE'")
+           "AND UPPER(r.dutyStatus) = 'EMERGENCY_DUTY' " +
+           "AND UPPER(r.doctorAvailabilityStatus) = 'AVAILABLE'")
     List<EmergencyDoctorRoster> findAvailableEmergencyRosters(@Param("today") LocalDate today, @Param("yesterday") LocalDate yesterday);
 
-    @Query("SELECT r FROM EmergencyDoctorRoster r WHERE r.doctor.id = :doctorId AND (r.rosterDate = :today OR (r.rosterDate = :yesterday AND r.shiftStart > r.shiftEnd)) AND r.dutyStatus = 'EMERGENCY_DUTY'")
+    @Query("SELECT r FROM EmergencyDoctorRoster r WHERE r.doctor.id = :doctorId " +
+           "AND (r.rosterDate = :today OR (r.rosterDate = :yesterday AND r.shiftStart > r.shiftEnd)) " +
+           "AND UPPER(r.dutyStatus) = 'EMERGENCY_DUTY' ORDER BY r.shiftStart ASC")
     List<EmergencyDoctorRoster> findTodayDutyForDoctor(@Param("doctorId") Long doctorId, @Param("today") LocalDate today, @Param("yesterday") LocalDate yesterday);
 }

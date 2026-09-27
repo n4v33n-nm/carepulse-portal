@@ -1,19 +1,37 @@
 package com.carepulse.dto;
 
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 public class UserProfileUpdateRequest {
 
+    @Size(max = 120, message = "Full name cannot exceed 120 characters")
     private String fullName;
+
+    @Size(max = 30, message = "Phone cannot exceed 30 characters")
     private String phone;
+
+    @Pattern(regexp = "SIMPLE|SUPPORTIVE|PROFESSIONAL", message = "Communication preference must be SIMPLE, SUPPORTIVE, or PROFESSIONAL")
     private String communicationPreference; // SIMPLE, SUPPORTIVE, PROFESSIONAL
     
     // Patient specific
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
     private String address;
+
+    @Size(max = 60, message = "Emergency contact cannot exceed 60 characters")
     private String emergencyContact;
+
+    @Size(max = 10, message = "Blood group cannot exceed 10 characters")
     private String bloodGroup;
 
     // Doctor specific
     private String bio;
+
+    @Positive(message = "Consultation fee must be positive")
     private Double consultationFee;
+
+    @Pattern(regexp = "AVAILABLE|BUSY|ON_LEAVE", message = "Availability status must be AVAILABLE, BUSY, or ON_LEAVE")
     private String availabilityStatus; // AVAILABLE, BUSY, ON_LEAVE
 
     public UserProfileUpdateRequest() {

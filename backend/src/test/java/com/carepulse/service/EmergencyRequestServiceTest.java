@@ -131,16 +131,18 @@ class EmergencyRequestServiceTest {
         EmergencyStatusUpdateRequestDTO inProgressReq = new EmergencyStatusUpdateRequestDTO("IN_PROGRESS", "Patient undergoing ECG");
         EmergencyRequestResponseDTO res1 = emergencyRequestService.updateRequestStatus(70L, "doctor@carepulse.com", inProgressReq);
         assertEquals("IN_PROGRESS", res1.getStatus());
+        assertNotNull(res1.getStartedTime());
 
         // Transition 2: Doctor sets COMPLETED
         when(requestRepository.countByAssignedDoctorAndStatusIn(eq(doctor), anyList())).thenReturn(0L);
         EmergencyStatusUpdateRequestDTO completedReq = new EmergencyStatusUpdateRequestDTO("COMPLETED", "Treated successfully, vitals normal");
         EmergencyRequestResponseDTO res2 = emergencyRequestService.updateRequestStatus(70L, "doctor@carepulse.com", completedReq);
         assertEquals("COMPLETED", res2.getStatus());
+        assertNotNull(res2.getCompletedTime());
 
         // Doctor should be restored to AVAILABLE since 0 active emergency cases remain
         assertEquals("AVAILABLE", doctor.getAvailabilityStatus());
-        verify(doctorRepository).save(doctor);
+        verify(doctorRepository, atLeastOnce()).save(doctor);
     }
 
     @Test
@@ -157,5 +159,41 @@ class EmergencyRequestServiceTest {
 
         assertEquals("CANCELLED", result.getStatus());
         verify(auditLogService).log(eq("patient1@carepulse.com"), eq("EMERGENCY_REQUEST_CANCELLED"), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Invalid transition from COMPLETED is rejected")
+    void testInvalidTransitionFromCompletedRejected() {
+        EmergencyRequest req = new EmergencyRequest(patient1, "General", "Case done");
+        req.setId(90L);
+        req.setAssignedDoctor(doctor);
+        req.setStatus("COMPLETED");
+
+        when(requestRepository.findById(90L)).thenReturn(Optional.of(req));
+        when(doctorRepository.findByUserEmail("doctor@carepulse.com")).thenReturn(Optional.of(doctor));
+
+        EmergencyStatusUpdateRequestDTO updateReq = new EmergencyStatusUpdateRequestDTO("IN_PROGRESS", "Reopen attempt");
+
+        assertThrows(com.carepulse.exception.BadRequestException.class, () ->
+                emergencyRequestService.updateRequestStatus(90L, "doctor@carepulse.com", updateReq)
+        );
+    }
+
+    @Test
+    @DisplayName("Invalid transition from CANCELLED is rejected")
+    void testInvalidTransitionFromCancelledRejected() {
+        EmergencyRequest req = new EmergencyRequest(patient1, "General", "Case cancelled");
+        req.setId(91L);
+        req.setAssignedDoctor(doctor);
+        req.setStatus("CANCELLED");
+
+        when(requestRepository.findById(91L)).thenReturn(Optional.of(req));
+        when(doctorRepository.findByUserEmail("doctor@carepulse.com")).thenReturn(Optional.of(doctor));
+
+        EmergencyStatusUpdateRequestDTO updateReq = new EmergencyStatusUpdateRequestDTO("IN_PROGRESS", "Restart attempt");
+
+        assertThrows(com.carepulse.exception.BadRequestException.class, () ->
+                emergencyRequestService.updateRequestStatus(91L, "doctor@carepulse.com", updateReq)
+        );
     }
 }

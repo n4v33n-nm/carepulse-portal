@@ -1,12 +1,17 @@
 package com.carepulse.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalTime;
 
 public class DoctorAvailabilityRequest {
 
     @NotBlank(message = "Day of week is required")
+    @Pattern(regexp = "MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY",
+            message = "Day of week must be MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, or SUNDAY")
     private String dayOfWeek;
 
     @NotNull(message = "Start time is required")
@@ -17,6 +22,9 @@ public class DoctorAvailabilityRequest {
 
     private LocalTime breakStartTime;
     private LocalTime breakEndTime;
+
+    @Min(value = 10, message = "Slot duration must be at least 10 minutes")
+    @Max(value = 120, message = "Slot duration cannot exceed 120 minutes")
     private Integer slotDurationMinutes = 30;
     private boolean available = true;
 

@@ -41,6 +41,13 @@ public class EmergencyRosterController {
         return ResponseEntity.ok(duties);
     }
 
+    @GetMapping("/api/doctor/emergency-duty/today")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<com.carepulse.dto.DoctorTodayDutyDTO> getDoctorTodayDutyToday(Authentication authentication) {
+        com.carepulse.dto.DoctorTodayDutyDTO duty = emergencyRosterService.getDoctorTodayDutySummary(authentication.getName());
+        return ResponseEntity.ok(duty);
+    }
+
     @PutMapping("/api/emergency-roster/my-status")
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<Doctor> updateMyAvailabilityStatus(
@@ -53,6 +60,13 @@ public class EmergencyRosterController {
     // ==========================================
     // ADMIN EMERGENCY ROSTER MANAGEMENT ENDPOINTS
     // ==========================================
+
+    @GetMapping("/api/admin/emergency-roster/doctors")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<com.carepulse.dto.DoctorRosterOptionDTO>> getDoctorsForRoster() {
+        List<com.carepulse.dto.DoctorRosterOptionDTO> doctors = emergencyRosterService.getDoctorsForRoster();
+        return ResponseEntity.ok(doctors);
+    }
 
     @GetMapping("/api/admin/emergency-roster")
     @PreAuthorize("hasRole('ADMIN')")
@@ -104,6 +118,34 @@ public class EmergencyRosterController {
     public ResponseEntity<List<EmergencyRequestResponseDTO>> getAllEmergencyRequests() {
         List<EmergencyRequestResponseDTO> requests = emergencyRequestService.getAllEmergencyRequests();
         return ResponseEntity.ok(requests);
+    }
+
+    @PostMapping("/api/admin/emergency-roster/generate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<EmergencyRosterResponseDTO>> generateEmergencyRoster(
+            Authentication authentication,
+            @RequestBody(required = false) com.carepulse.dto.EmergencyRosterGenerateRequestDTO request,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate targetDate = date;
+        Integer doctorsPerShift = null;
+        if (request != null) {
+            if (request.getRosterDate() != null) targetDate = request.getRosterDate();
+            if (request.getDoctorsPerShift() != null) doctorsPerShift = request.getDoctorsPerShift();
+        }
+        if (targetDate == null) {
+            targetDate = LocalDate.now().plusDays(1); // default to tomorrow
+        }
+        List<EmergencyRosterResponseDTO> generated = emergencyRosterService.autoGenerateRoster(
+                targetDate, doctorsPerShift, authentication.getName());
+        return ResponseEntity.ok(generated);
+    }
+
+    @GetMapping("/api/admin/emergency-analytics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.carepulse.dto.EmergencyAnalyticsDTO> getEmergencyAnalytics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        com.carepulse.dto.EmergencyAnalyticsDTO analytics = emergencyRequestService.getEmergencyAnalytics(date);
+        return ResponseEntity.ok(analytics);
     }
 
     @GetMapping("/api/admin/emergency-stats")
