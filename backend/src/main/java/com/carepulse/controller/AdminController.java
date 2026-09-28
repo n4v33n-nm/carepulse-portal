@@ -83,17 +83,25 @@ public class AdminController {
     }
 
     @GetMapping("/analytics")
-    public ResponseEntity<com.carepulse.dto.AdminAnalyticsDTO> getPlatformAnalytics() {
-        java.time.LocalDate today = java.time.LocalDate.now();
+    public ResponseEntity<com.carepulse.dto.AdminAnalyticsDTO> getPlatformAnalytics(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) Long doctorId,
+            @RequestParam(required = false) String appointmentStatus,
+            @RequestParam(required = false) String emergencyStatus) {
+        java.time.LocalDate targetDate = (date != null) ? date : java.time.LocalDate.now();
         long totalPatients = patientRepository.count();
         long totalDoctors = doctorRepository.count();
-        long totalAppointments = appointmentRepository.count();
-        long todayAppointments = appointmentRepository.countByAppointmentDate(today);
+        long totalAppointments = (appointmentStatus != null && !appointmentStatus.isBlank())
+                ? appointmentRepository.countByStatus(appointmentStatus.toUpperCase())
+                : appointmentRepository.count();
+        long todayAppointments = appointmentRepository.countByAppointmentDate(targetDate);
         long completedAppointments = appointmentRepository.countByStatus("COMPLETED");
         long cancelledAppointments = appointmentRepository.countByStatus("CANCELLED");
         long activeWaitlist = waitlistRepository.countByStatus("WAITING");
 
-        long totalEmergencies = emergencyRequestRepository.count();
+        long totalEmergencies = (emergencyStatus != null && !emergencyStatus.isBlank())
+                ? emergencyRequestRepository.countByStatus(emergencyStatus.toUpperCase())
+                : emergencyRequestRepository.count();
         long assignedEmergencies = emergencyRequestRepository.countByStatus("ASSIGNED");
         long inProgressEmergencies = emergencyRequestRepository.countByStatus("IN_PROGRESS");
         long completedEmergencies = emergencyRequestRepository.countByStatus("COMPLETED");
@@ -108,14 +116,17 @@ public class AdminController {
                 .average()
                 .orElse(0.0);
 
-        // 7-day appointment trends
+        // 7-day appointment trends around targetDate
         Map<String, Long> trends = new java.util.LinkedHashMap<>();
         for (int i = 6; i >= 0; i--) {
-            java.time.LocalDate d = today.minusDays(i);
+            java.time.LocalDate d = targetDate.minusDays(i);
             trends.put(d.toString(), appointmentRepository.countByAppointmentDate(d));
         }
 
         List<com.carepulse.dto.DoctorWorkloadDTO> workloads = doctorService.getDoctorWorkloadsToday();
+        if (doctorId != null) {
+            workloads = workloads.stream().filter(w -> doctorId.equals(w.getDoctorId())).toList();
+        }
 
         com.carepulse.dto.AdminAnalyticsDTO analytics = new com.carepulse.dto.AdminAnalyticsDTO(
                 totalPatients,

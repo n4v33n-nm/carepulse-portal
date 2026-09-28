@@ -66,7 +66,7 @@ public class MedicalRecordController {
         return ResponseEntity.ok(medicalRecordService.generateAiDraftSummary(id, authentication.getName()));
     }
 
-    @PatchMapping("/{id}/ai-summary-review")
+    @RequestMapping(value = "/{id}/ai-summary-review", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<MedicalRecord> reviewAiSummary(
             @PathVariable Long id,

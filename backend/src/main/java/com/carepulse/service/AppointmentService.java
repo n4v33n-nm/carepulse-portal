@@ -1,19 +1,25 @@
 package com.carepulse.service;
 
 import com.carepulse.dto.AppointmentRequest;
+import com.carepulse.dto.AppointmentRescheduleRequestDTO;
 import com.carepulse.dto.AppointmentStatusUpdateRequest;
 import com.carepulse.entity.Appointment;
 import com.carepulse.entity.Doctor;
+import com.carepulse.entity.DoctorAvailability;
+import com.carepulse.entity.EmergencyDoctorRoster;
 import com.carepulse.entity.Patient;
 import com.carepulse.exception.BadRequestException;
 import com.carepulse.exception.ResourceNotFoundException;
 import com.carepulse.repository.AppointmentRepository;
+import com.carepulse.repository.DoctorAvailabilityRepository;
 import com.carepulse.repository.DoctorRepository;
+import com.carepulse.repository.EmergencyDoctorRosterRepository;
 import com.carepulse.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -27,6 +33,8 @@ public class AppointmentService {
     private final AuditLogService auditLogService;
     private final CaregiverService caregiverService;
     private final AppointmentWaitlistService waitlistService;
+    private final DoctorAvailabilityRepository doctorAvailabilityRepository;
+    private final EmergencyDoctorRosterRepository emergencyRosterRepository;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientRepository patientRepository,
@@ -34,7 +42,9 @@ public class AppointmentService {
                               NotificationService notificationService,
                               AuditLogService auditLogService,
                               CaregiverService caregiverService,
-                              AppointmentWaitlistService waitlistService) {
+                              AppointmentWaitlistService waitlistService,
+                              DoctorAvailabilityRepository doctorAvailabilityRepository,
+                              EmergencyDoctorRosterRepository emergencyRosterRepository) {
         this.appointmentRepository = appointmentRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -42,6 +52,8 @@ public class AppointmentService {
         this.auditLogService = auditLogService;
         this.caregiverService = caregiverService;
         this.waitlistService = waitlistService;
+        this.doctorAvailabilityRepository = doctorAvailabilityRepository;
+        this.emergencyRosterRepository = emergencyRosterRepository;
     }
 
     @Transactional
@@ -62,6 +74,9 @@ public class AppointmentService {
         if ("ON_LEAVE".equalsIgnoreCase(doctor.getAvailabilityStatus())) {
             throw new BadRequestException("Dr. " + doctor.getFullName() + " is currently on leave and unavailable for booking");
         }
+
+        validateDoctorWorkingHours(doctor.getId(), doctor.getFullName(), request.getAppointmentDate(), request.getAppointmentTime());
+        validateEmergencyDutyConflict(doctor.getId(), doctor.getFullName(), request.getAppointmentDate(), request.getAppointmentTime());
 
         // Double-booking check: Doctor
         List<Appointment> doctorConflicts = appointmentRepository.findActiveAppointmentsForDoctorAtTime(
@@ -230,5 +245,123 @@ public class AppointmentService {
 
     public List<Appointment> getAllAppointments() {
         return appointmentRepository.findAll();
+    }
+
+    @Transactional
+    public Appointment rescheduleAppointment(Long id, String userEmail, String role, AppointmentRescheduleRequestDTO request) {
+        Appointment appointment = getAppointmentById(id);
+
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+        boolean isDoctor = appointment.getDoctor() != null && appointment.getDoctor().getUser().getEmail().equalsIgnoreCase(userEmail);
+        boolean isPatient = appointment.getPatient() != null && appointment.getPatient().getUser().getEmail().equalsIgnoreCase(userEmail);
+        boolean isCaregiver = appointment.getPatient() != null && caregiverService.isAuthorizedCaregiver(appointment.getPatient().getId(), userEmail);
+
+        if (!isAdmin && !isDoctor && !isPatient && !isCaregiver) {
+            throw new org.springframework.security.access.AccessDeniedException("You do not have permission to reschedule this appointment");
+        }
+
+        if ("COMPLETED".equalsIgnoreCase(appointment.getStatus())) {
+            throw new BadRequestException("Completed appointments cannot be rescheduled");
+        }
+        if ("CANCELLED".equalsIgnoreCase(appointment.getStatus())) {
+            throw new BadRequestException("Cancelled appointments cannot be rescheduled");
+        }
+
+        if (request.getNewDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException("Cannot reschedule to a past date");
+        }
+        if (request.getNewDate().isEqual(LocalDate.now()) && request.getNewTime().isBefore(LocalTime.now())) {
+            throw new BadRequestException("Cannot reschedule to a past time slot today");
+        }
+
+        Doctor doctor = appointment.getDoctor();
+        if ("ON_LEAVE".equalsIgnoreCase(doctor.getAvailabilityStatus())) {
+            throw new BadRequestException("Dr. " + doctor.getFullName() + " is currently on leave");
+        }
+
+        validateDoctorWorkingHours(doctor.getId(), doctor.getFullName(), request.getNewDate(), request.getNewTime());
+        validateEmergencyDutyConflict(doctor.getId(), doctor.getFullName(), request.getNewDate(), request.getNewTime());
+
+        // Check doctor conflicts at new time (excluding this appointment)
+        List<Appointment> doctorConflicts = appointmentRepository.findActiveAppointmentsForDoctorAtTime(
+                doctor.getId(), request.getNewDate(), request.getNewTime()
+        ).stream().filter(a -> !a.getId().equals(appointment.getId())).toList();
+        if (!doctorConflicts.isEmpty()) {
+            throw new BadRequestException("The selected slot (" + request.getNewTime() + ") is already booked with Dr. " + doctor.getFullName());
+        }
+
+        // Check patient conflicts at new time (excluding this appointment)
+        List<Appointment> patientConflicts = appointmentRepository.findActiveAppointmentsForPatientAtTime(
+                appointment.getPatient().getId(), request.getNewDate(), request.getNewTime()
+        ).stream().filter(a -> !a.getId().equals(appointment.getId())).toList();
+        if (!patientConflicts.isEmpty()) {
+            throw new BadRequestException("Patient already has an active appointment scheduled at " + request.getNewTime() + " on " + request.getNewDate());
+        }
+
+        LocalDate oldDate = appointment.getAppointmentDate();
+        LocalTime oldTime = appointment.getAppointmentTime();
+
+        appointment.setAppointmentDate(request.getNewDate());
+        appointment.setAppointmentTime(request.getNewTime());
+        if (request.getReason() != null && !request.getReason().isBlank()) {
+            appointment.setReason(request.getReason());
+        }
+        appointment.setStatus("PENDING");
+        Appointment saved = appointmentRepository.save(appointment);
+
+        // Releasing old slot: Notify any waitlisted patients for the freed slot
+        waitlistService.processWaitlistOnSlotAvailable(doctor, oldDate, oldTime);
+
+        // Notifications
+        String dateStr = request.getNewDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+        notificationService.createNotification(
+                appointment.getPatient().getUser(),
+                "Appointment Rescheduled",
+                "Your appointment with Dr. " + doctor.getFullName() + " was rescheduled to " + dateStr + " at " + request.getNewTime() + ".",
+                "APPOINTMENT"
+        );
+        notificationService.createNotification(
+                doctor.getUser(),
+                "Appointment Rescheduled",
+                "Consultation with patient " + appointment.getPatient().getFullName() + " rescheduled to " + dateStr + " at " + request.getNewTime() + ".",
+                "APPOINTMENT"
+        );
+
+        auditLogService.log(userEmail, "APPOINTMENT_RESCHEDULED", "Appointment:" + saved.getId(),
+                "Rescheduled from " + oldDate + " " + oldTime + " to " + request.getNewDate() + " " + request.getNewTime());
+
+        return saved;
+    }
+
+    private void validateDoctorWorkingHours(Long doctorId, String doctorName, LocalDate date, LocalTime time) {
+        String dayOfWeek = date.getDayOfWeek().name();
+        List<DoctorAvailability> availList = doctorAvailabilityRepository.findByDoctorIdAndDayOfWeek(doctorId, dayOfWeek);
+        if (!availList.isEmpty()) {
+            boolean working = availList.stream().anyMatch(a -> a.isAvailable() &&
+                    (time.equals(a.getStartTime()) || time.isAfter(a.getStartTime())) &&
+                    time.isBefore(a.getEndTime()) &&
+                    (a.getBreakStartTime() == null || a.getBreakEndTime() == null ||
+                            time.isBefore(a.getBreakStartTime()) || !time.isBefore(a.getBreakEndTime())));
+            if (!working) {
+                throw new BadRequestException("Dr. " + doctorName + " does not have consultation hours at " + time + " on " + dayOfWeek);
+            }
+        }
+    }
+
+    private void validateEmergencyDutyConflict(Long doctorId, String doctorName, LocalDate date, LocalTime time) {
+        List<EmergencyDoctorRoster> rosters = emergencyRosterRepository.findByDoctorIdAndRosterDate(doctorId, date);
+        for (EmergencyDoctorRoster r : rosters) {
+            if ("EMERGENCY_DUTY".equalsIgnoreCase(r.getDutyStatus())) {
+                boolean inShift;
+                if (r.getShiftStart().isBefore(r.getShiftEnd())) {
+                    inShift = (time.equals(r.getShiftStart()) || time.isAfter(r.getShiftStart())) && time.isBefore(r.getShiftEnd());
+                } else {
+                    inShift = time.equals(r.getShiftStart()) || time.isAfter(r.getShiftStart()) || time.isBefore(r.getShiftEnd());
+                }
+                if (inShift) {
+                    throw new BadRequestException("Dr. " + doctorName + " is scheduled for emergency duty during this time (" + r.getShiftName() + " shift)");
+                }
+            }
+        }
     }
 }

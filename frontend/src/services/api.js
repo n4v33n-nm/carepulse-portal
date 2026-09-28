@@ -88,11 +88,18 @@ export const appointmentService = {
   getAppointmentById: (id) => api.get(`/appointments/${id}`),
   updateStatus: (id, data) => api.put(`/appointments/${id}/status`, data),
   cancelAppointment: (id, reason) => api.delete(`/appointments/${id}`, { params: { reason } }),
+  rescheduleAppointment: (id, data) => api.put(`/appointments/${id}/reschedule`, data),
   getAvailableSlots: (doctorId, date) => api.get('/appointments/available-slots', { params: { doctorId, date } }),
   joinWaitlist: (data) => api.post('/appointments/waitlist', data),
   getMyWaitlist: () => api.get('/appointments/waitlist/my'),
   cancelWaitlist: (id) => api.delete(`/appointments/waitlist/${id}`),
   getWaitTime: (id) => api.get(`/appointments/${id}/wait-time`),
+};
+
+export const patientService = {
+  getAllPatients: () => api.get('/patients'),
+  getPatientById: (id) => api.get(`/patients/${id}`),
+  updateProfile: (id, data) => api.put(`/patients/${id}/profile`, data),
 };
 
 export const recordService = {

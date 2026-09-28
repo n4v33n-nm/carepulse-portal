@@ -43,4 +43,6 @@ public interface EmergencyRequestRepository extends JpaRepository<EmergencyReque
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(e) FROM EmergencyRequest e WHERE e.assignedDoctor.id = :doctorId AND CAST(e.requestTime AS date) = :date AND e.status != 'CANCELLED'")
     long countEmergencyCasesForDoctorOnDate(@org.springframework.data.repository.query.Param("doctorId") Long doctorId, @org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
+
+    boolean existsByAssignedDoctorIdAndPatientId(Long doctorId, Long patientId);
 }

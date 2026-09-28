@@ -364,6 +364,47 @@ Updates an appointment status (`CONFIRMED`, `COMPLETED`, `CANCELLED`).
 
 ---
 
+### `PUT /api/appointments/{id}/reschedule`
+Reschedules an existing appointment to a new date and time slot. Validates physician availability, prevents collision with other bookings or emergency duties, releases the previous slot, and automatically checks the waitlist for potential re-allocation of the vacated slot.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `DOCTOR`, `ADMIN`
+* **Request Example:**
+```json
+{
+  "newDate": "2026-10-15",
+  "newTime": "11:00:00",
+  "reason": "Rescheduled due to patient schedule conflict"
+}
+```
+* **Response Example (200 OK):**
+```json
+{
+  "id": 6,
+  "appointmentDate": "2026-10-15",
+  "appointmentTime": "11:00:00",
+  "status": "CONFIRMED",
+  "reason": "Rescheduled due to patient schedule conflict"
+}
+```
+
+---
+
+### `DELETE /api/appointments/{id}`
+Cancels an appointment. Frees the consultation slot in real time, triggers waitlist notification logic to notify patients queued for that physician and date, and records an audit log entry.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `DOCTOR`, `ADMIN`
+* **Query Parameters:** `reason` (optional, defaults to "Cancelled by user")
+* **Response Example (200 OK):**
+```json
+{
+  "id": 6,
+  "status": "CANCELLED",
+  "cancellationReason": "Cancelled by user"
+}
+```
+
+---
+
 ### `GET /api/appointments/available-slots`
 Dynamic slot retrieval endpoint filtering doctor's schedule, existing appointments, and past slots for today.
 * **Auth Requirement:** None (Public or Authenticated)
@@ -1074,6 +1115,11 @@ Retrieves comprehensive emergency department statistics and individual doctor ca
 Unified healthcare coordination analytics aggregating high-level clinical metrics, emergency volume, doctor workload balancing distribution, and multi-day trends.
 * **Auth Requirement:** JWT Bearer
 * **Allowed Roles:** `ADMIN`
+* **Query Parameters (All Optional):**
+  - `date` (`YYYY-MM-DD`): Filters appointment and emergency metrics for a specific calendar date (defaults to today).
+  - `doctorId` (Long): Scopes workload and appointment metrics to a specific physician.
+  - `appointmentStatus` (String): Filters appointments by status (`PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`).
+  - `emergencyStatus` (String): Filters emergency triage volume by status (`WAITING`, `ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `NO_DOCTOR_AVAILABLE`).
 * **Response Example (200 OK):**
 ```json
 {

@@ -39,6 +39,7 @@ public class EmergencyRequestService {
     private final EmergencyDoctorAllocationService allocationService;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
+    private final CaregiverService caregiverService;
 
     @Value("${emergency.assignment.timeout.minutes:10}")
     private int assignmentTimeoutMinutes;
@@ -49,7 +50,8 @@ public class EmergencyRequestService {
                                   EmergencyDoctorRosterRepository rosterRepository,
                                   EmergencyDoctorAllocationService allocationService,
                                   NotificationService notificationService,
-                                  AuditLogService auditLogService) {
+                                  AuditLogService auditLogService,
+                                  CaregiverService caregiverService) {
         this.requestRepository = requestRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -57,6 +59,7 @@ public class EmergencyRequestService {
         this.allocationService = allocationService;
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
+        this.caregiverService = caregiverService;
     }
 
     @Transactional
@@ -183,13 +186,21 @@ public class EmergencyRequestService {
 
         // Privacy and Access Control Enforcement
         if ("PATIENT".equalsIgnoreCase(role)) {
-            if (!request.getPatient().getUser().getEmail().equalsIgnoreCase(currentUserEmail)) {
+            boolean isSelf = request.getPatient().getUser().getEmail().equalsIgnoreCase(currentUserEmail);
+            boolean isCaregiver = caregiverService.isAuthorizedCaregiver(request.getPatient().getId(), currentUserEmail);
+            if (!isSelf && !isCaregiver) {
                 throw new UnauthorizedException("You are not authorized to view another patient's emergency request");
             }
         } else if ("DOCTOR".equalsIgnoreCase(role)) {
-            if (request.getAssignedDoctor() != null &&
-                    !request.getAssignedDoctor().getUser().getEmail().equalsIgnoreCase(currentUserEmail)) {
-                throw new UnauthorizedException("You are not authorized to view another doctor's assigned emergency request");
+            if (request.getAssignedDoctor() != null) {
+                if (!request.getAssignedDoctor().getUser().getEmail().equalsIgnoreCase(currentUserEmail)) {
+                    throw new UnauthorizedException("You are not authorized to view another doctor's assigned emergency request");
+                }
+            } else {
+                Doctor doctor = doctorRepository.findByUserEmail(currentUserEmail).orElse(null);
+                if (doctor == null || rosterRepository.findTodayDutyForDoctor(doctor.getId(), LocalDate.now(), LocalDate.now().minusDays(1)).isEmpty()) {
+                    throw new UnauthorizedException("Only doctors rostered on active emergency duty may view unassigned emergency queue requests");
+                }
             }
         }
 

@@ -50,6 +50,9 @@ class EmergencyRequestServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private CaregiverService caregiverService;
+
     @InjectMocks
     private EmergencyRequestService emergencyRequestService;
 

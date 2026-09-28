@@ -84,6 +84,15 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, user.getEmail(), user.getRole(), req));
     }
 
+    @PutMapping("/{id}/reschedule")
+    public ResponseEntity<Appointment> rescheduleAppointment(
+            @PathVariable Long id,
+            Authentication authentication,
+            @Valid @RequestBody com.carepulse.dto.AppointmentRescheduleRequestDTO request) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(appointmentService.rescheduleAppointment(id, user.getEmail(), user.getRole(), request));
+    }
+
     @GetMapping("/available-slots")
     public ResponseEntity<List<java.time.LocalTime>> getAvailableSlotsForDoctor(
             @RequestParam Long doctorId,

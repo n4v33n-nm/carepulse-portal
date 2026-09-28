@@ -5,7 +5,9 @@ import com.carepulse.entity.Doctor;
 import com.carepulse.entity.MedicalRecord;
 import com.carepulse.entity.Patient;
 import com.carepulse.exception.ResourceNotFoundException;
+import com.carepulse.repository.AppointmentRepository;
 import com.carepulse.repository.DoctorRepository;
+import com.carepulse.repository.EmergencyRequestRepository;
 import com.carepulse.repository.MedicalRecordRepository;
 import com.carepulse.repository.PatientRepository;
 import org.springframework.stereotype.Service;
@@ -23,19 +25,25 @@ public class MedicalRecordService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final CaregiverService caregiverService;
+    private final AppointmentRepository appointmentRepository;
+    private final EmergencyRequestRepository emergencyRequestRepository;
 
     public MedicalRecordService(MedicalRecordRepository medicalRecordRepository,
                                 PatientRepository patientRepository,
                                 DoctorRepository doctorRepository,
                                 NotificationService notificationService,
                                 AuditLogService auditLogService,
-                                CaregiverService caregiverService) {
+                                CaregiverService caregiverService,
+                                AppointmentRepository appointmentRepository,
+                                EmergencyRequestRepository emergencyRequestRepository) {
         this.medicalRecordRepository = medicalRecordRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
         this.caregiverService = caregiverService;
+        this.appointmentRepository = appointmentRepository;
+        this.emergencyRequestRepository = emergencyRequestRepository;
     }
 
     @Transactional
@@ -82,15 +90,25 @@ public class MedicalRecordService {
         return getRecordsForPatientId(patientId, viewerEmail, null);
     }
 
+    public boolean isDoctorAuthorizedForPatient(String doctorEmail, Long patientId) {
+        if (doctorEmail == null || patientId == null) return false;
+        Doctor doctor = doctorRepository.findByUserEmail(doctorEmail).orElse(null);
+        if (doctor == null) return false;
+
+        return appointmentRepository.existsByDoctorIdAndPatientId(doctor.getId(), patientId)
+                || emergencyRequestRepository.existsByAssignedDoctorIdAndPatientId(doctor.getId(), patientId)
+                || medicalRecordRepository.existsByPatientIdAndDoctorId(patientId, doctor.getId());
+    }
+
     public List<MedicalRecord> getRecordsForPatientId(Long patientId, String viewerEmail, String role) {
         boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
-        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
+        boolean isAuthorizedDoctor = "DOCTOR".equalsIgnoreCase(role) && isDoctorAuthorizedForPatient(viewerEmail, patientId);
         boolean isSelf = patientRepository.findById(patientId)
                 .map(p -> p.getUser().getEmail().equalsIgnoreCase(viewerEmail))
                 .orElse(false);
         boolean isCaregiver = caregiverService.isAuthorizedCaregiverWithPermission(patientId, viewerEmail, "VIEW_RECORDS");
 
-        if (!isAdmin && !isDoctor && !isSelf && !isCaregiver) {
+        if (!isAdmin && !isAuthorizedDoctor && !isSelf && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to access records for this patient");
         }
 
@@ -117,16 +135,20 @@ public class MedicalRecordService {
     public MedicalRecord getRecordById(Long id, String callerEmail, String role) {
         MedicalRecord record = getRecordById(id);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
-        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
         boolean isPatient = record.getPatient() != null && record.getPatient().getUser().getEmail().equalsIgnoreCase(callerEmail);
         boolean isAuthorDoctor = record.getDoctor() != null && record.getDoctor().getUser().getEmail().equalsIgnoreCase(callerEmail);
+        boolean isTreatingDoctor = "DOCTOR".equalsIgnoreCase(role) && record.getPatient() != null && isDoctorAuthorizedForPatient(callerEmail, record.getPatient().getId());
         boolean isCaregiver = record.getPatient() != null && caregiverService.isAuthorizedCaregiverWithPermission(record.getPatient().getId(), callerEmail, "VIEW_RECORDS");
 
-        if (!isAdmin && !isDoctor && !isPatient && !isAuthorDoctor && !isCaregiver) {
+        if (!isAdmin && !isPatient && !isAuthorDoctor && !isTreatingDoctor && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this medical record");
         }
 
-        auditLogService.log(callerEmail, "MEDICAL_RECORD_VIEWED", "MedicalRecord:" + id, "Viewed medical record details");
+        if (isAdmin && !isPatient && !isCaregiver) {
+            auditLogService.log(callerEmail, "ADMIN_CLINICAL_AUDIT_ACCESS", "MedicalRecord:" + id, "Administrative audit access to medical record details");
+        } else {
+            auditLogService.log(callerEmail, "MEDICAL_RECORD_VIEWED", "MedicalRecord:" + id, "Viewed medical record details");
+        }
         return record;
     }
 

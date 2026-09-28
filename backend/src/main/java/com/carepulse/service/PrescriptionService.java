@@ -6,7 +6,9 @@ import com.carepulse.entity.MedicalRecord;
 import com.carepulse.entity.Patient;
 import com.carepulse.entity.Prescription;
 import com.carepulse.exception.ResourceNotFoundException;
+import com.carepulse.repository.AppointmentRepository;
 import com.carepulse.repository.DoctorRepository;
+import com.carepulse.repository.EmergencyRequestRepository;
 import com.carepulse.repository.MedicalRecordRepository;
 import com.carepulse.repository.PatientRepository;
 import com.carepulse.repository.PrescriptionRepository;
@@ -26,6 +28,8 @@ public class PrescriptionService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final CaregiverService caregiverService;
+    private final AppointmentRepository appointmentRepository;
+    private final EmergencyRequestRepository emergencyRequestRepository;
 
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
                                PatientRepository patientRepository,
@@ -33,7 +37,9 @@ public class PrescriptionService {
                                MedicalRecordRepository medicalRecordRepository,
                                NotificationService notificationService,
                                AuditLogService auditLogService,
-                               CaregiverService caregiverService) {
+                               CaregiverService caregiverService,
+                               AppointmentRepository appointmentRepository,
+                               EmergencyRequestRepository emergencyRequestRepository) {
         this.prescriptionRepository = prescriptionRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -41,6 +47,8 @@ public class PrescriptionService {
         this.notificationService = notificationService;
         this.auditLogService = auditLogService;
         this.caregiverService = caregiverService;
+        this.appointmentRepository = appointmentRepository;
+        this.emergencyRequestRepository = emergencyRequestRepository;
     }
 
     @Transactional
@@ -88,20 +96,39 @@ public class PrescriptionService {
         return prescriptionRepository.findByPatientOrderByIssuedDateDesc(patient);
     }
 
+    public boolean isDoctorAuthorizedForPatient(String doctorEmail, Long patientId) {
+        if (doctorEmail == null || patientId == null) return false;
+        Doctor doctor = doctorRepository.findByUserEmail(doctorEmail).orElse(null);
+        if (doctor == null) return false;
+
+        return appointmentRepository.existsByDoctorIdAndPatientId(doctor.getId(), patientId)
+                || emergencyRequestRepository.existsByAssignedDoctorIdAndPatientId(doctor.getId(), patientId)
+                || medicalRecordRepository.existsByPatientIdAndDoctorId(patientId, doctor.getId())
+                || prescriptionRepository.existsByPatientIdAndDoctorId(patientId, doctor.getId());
+    }
+
     public List<Prescription> getPrescriptionsForPatientId(Long patientId) {
         return getPrescriptionsForPatientId(patientId, null, null);
     }
 
     public List<Prescription> getPrescriptionsForPatientId(Long patientId, String callerEmail, String role) {
         boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
-        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
+        boolean isAuthorizedDoctor = "DOCTOR".equalsIgnoreCase(role) && isDoctorAuthorizedForPatient(callerEmail, patientId);
         boolean isSelf = callerEmail != null && patientRepository.findById(patientId)
                 .map(p -> p.getUser().getEmail().equalsIgnoreCase(callerEmail))
                 .orElse(false);
         boolean isCaregiver = callerEmail != null && caregiverService.isAuthorizedCaregiver(patientId, callerEmail);
 
-        if (callerEmail != null && !isAdmin && !isDoctor && !isSelf && !isCaregiver) {
+        if (callerEmail != null && !isAdmin && !isAuthorizedDoctor && !isSelf && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view prescriptions for this patient");
+        }
+
+        if (callerEmail != null) {
+            if (isAdmin && !isSelf && !isCaregiver) {
+                auditLogService.log(callerEmail, "ADMIN_CLINICAL_AUDIT_ACCESS", "PatientPrescriptions:" + patientId, "Administrative audit access to patient prescriptions");
+            } else {
+                auditLogService.log(callerEmail, "PRESCRIPTIONS_VIEWED", "PatientPrescriptions:" + patientId, "Viewed prescriptions for patient ID " + patientId);
+            }
         }
 
         return prescriptionRepository.findByPatientIdOrderByIssuedDateDesc(patientId);
@@ -121,13 +148,21 @@ public class PrescriptionService {
     public Prescription getPrescriptionById(Long id, String callerEmail, String role) {
         Prescription prescription = getPrescriptionById(id);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
-        boolean isDoctor = "DOCTOR".equalsIgnoreCase(role);
         boolean isPatient = prescription.getPatient() != null && prescription.getPatient().getUser().getEmail().equalsIgnoreCase(callerEmail);
         boolean isAuthorDoctor = prescription.getDoctor() != null && prescription.getDoctor().getUser().getEmail().equalsIgnoreCase(callerEmail);
+        boolean isTreatingDoctor = "DOCTOR".equalsIgnoreCase(role) && prescription.getPatient() != null && isDoctorAuthorizedForPatient(callerEmail, prescription.getPatient().getId());
         boolean isCaregiver = prescription.getPatient() != null && caregiverService.isAuthorizedCaregiver(prescription.getPatient().getId(), callerEmail);
 
-        if (!isAdmin && !isDoctor && !isPatient && !isAuthorDoctor && !isCaregiver) {
+        if (!isAdmin && !isPatient && !isAuthorDoctor && !isTreatingDoctor && !isCaregiver) {
             throw new org.springframework.security.access.AccessDeniedException("You do not have permission to view this prescription");
+        }
+
+        if (callerEmail != null) {
+            if (isAdmin && !isPatient && !isCaregiver) {
+                auditLogService.log(callerEmail, "ADMIN_CLINICAL_AUDIT_ACCESS", "Prescription:" + id, "Administrative audit access to prescription");
+            } else {
+                auditLogService.log(callerEmail, "PRESCRIPTION_VIEWED", "Prescription:" + id, "Viewed prescription details");
+            }
         }
 
         return prescription;

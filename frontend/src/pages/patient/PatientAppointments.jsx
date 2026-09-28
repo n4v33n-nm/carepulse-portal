@@ -26,6 +26,17 @@ const PatientAppointments = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
 
+  // Reschedule Modal
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [rescheduleAppt, setRescheduleAppt] = useState(null);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [newReason, setNewReason] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
+
   useEffect(() => {
     fetchAppointments();
     fetchWaitlist();
@@ -99,6 +110,65 @@ const PatientAppointments = () => {
       alert(err.response?.data?.message || 'Failed to cancel appointment');
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleRescheduleClick = (appt) => {
+    setSelectedAppt(appt);
+    setRescheduleAppt(appt);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    setNewDate(tomorrow);
+    setNewTime('');
+    setNewReason(appt.reason || '');
+    setRescheduleError('');
+    setRescheduleModalOpen(true);
+    fetchSlotsForDoctor(appt.doctor.id, tomorrow);
+  };
+
+  const fetchSlotsForDoctor = async (doctorId, date) => {
+    if (!doctorId || !date) return;
+    setSlotsLoading(true);
+    setAvailableSlots([]);
+    try {
+      const res = await appointmentService.getAvailableSlots(doctorId, date);
+      setAvailableSlots(res.data || []);
+    } catch (err) {
+      console.error('Failed to load slots', err);
+      setAvailableSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleDateChange = (date) => {
+    setNewDate(date);
+    setNewTime('');
+    if (rescheduleAppt) {
+      fetchSlotsForDoctor(rescheduleAppt.doctor.id, date);
+    }
+  };
+
+  const handleConfirmReschedule = async (e) => {
+    e.preventDefault();
+    if (!rescheduleAppt || !newDate || !newTime) {
+      setRescheduleError('Please select both a date and an available consultation time slot.');
+      return;
+    }
+    setRescheduleLoading(true);
+    setRescheduleError('');
+    try {
+      await appointmentService.rescheduleAppointment(rescheduleAppt.id, {
+        newDate,
+        newTime,
+        reason: newReason || rescheduleAppt.reason,
+      });
+      setRescheduleModalOpen(false);
+      fetchAppointments();
+      fetchWaitlist();
+    } catch (err) {
+      setRescheduleError(err.response?.data?.message || 'Failed to reschedule appointment');
+    } finally {
+      setRescheduleLoading(false);
     }
   };
 
@@ -267,14 +337,23 @@ const PatientAppointments = () => {
                         {appt.status}
                       </span>
                       {(appt.status === 'PENDING' || appt.status === 'CONFIRMED') && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: '#ef4444' }}
-                          onClick={() => handleCancelClick(appt)}
-                        >
-                          Cancel
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleRescheduleClick(appt)}
+                          >
+                            Reschedule
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: '#ef4444' }}
+                            onClick={() => handleCancelClick(appt)}
+                          >
+                            Cancel
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -407,6 +486,104 @@ const PatientAppointments = () => {
             {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
           </button>
         </div>
+      </Modal>
+
+      {/* Reschedule Consultation Modal */}
+      <Modal
+        isOpen={rescheduleModalOpen}
+        onClose={() => setRescheduleModalOpen(false)}
+        title="Reschedule Appointment"
+        maxWidth="500px"
+      >
+        <form onSubmit={handleConfirmReschedule}>
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ color: 'var(--slate-700)', fontSize: '0.9375rem', marginBottom: '6px' }}>
+              Rescheduling with <strong>{rescheduleAppt?.doctor?.fullName}</strong> ({rescheduleAppt?.doctor?.specialization})
+            </p>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--slate-500)' }}>
+              Current slot: {rescheduleAppt?.appointmentDate} at {rescheduleAppt?.appointmentTime}. Your previous slot will be released and waitlisted patients will be notified.
+            </p>
+          </div>
+
+          {rescheduleError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', color: '#991b1b', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '16px' }}>
+              {rescheduleError}
+            </div>
+          )}
+
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label" htmlFor="reschedule-date">Select New Date</label>
+            <input
+              id="reschedule-date"
+              type="date"
+              className="form-control"
+              min={new Date().toISOString().split('T')[0]}
+              value={newDate}
+              onChange={(e) => handleDateChange(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Select Available Time Slot</label>
+            {slotsLoading ? (
+              <div style={{ fontSize: '0.875rem', color: 'var(--slate-500)', padding: '10px 0' }}>
+                Checking consultation hours and doctor availability...
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <div style={{ fontSize: '0.875rem', color: '#b45309', background: '#fffbeb', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}>
+                No slots available on this date. Dr. {rescheduleAppt?.doctor?.fullName} may be on leave, off duty, or fully booked. Please choose another date.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', padding: '4px' }}>
+                {availableSlots.map((slot) => {
+                  const slotStr = typeof slot === 'string' ? slot.substring(0, 5) : slot;
+                  const isSelected = newTime.startsWith(slotStr);
+                  return (
+                    <button
+                      key={slotStr}
+                      type="button"
+                      className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.8125rem', padding: '6px 8px' }}
+                      onClick={() => setNewTime(typeof slot === 'string' && slot.length === 5 ? `${slot}:00` : slot)}
+                    >
+                      {slotStr}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="form-label" htmlFor="reschedule-reason">Reason for Rescheduling (optional)</label>
+            <input
+              id="reschedule-reason"
+              type="text"
+              className="form-control"
+              placeholder="e.g. Schedule change, timing preference"
+              value={newReason}
+              onChange={(e) => setNewReason(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRescheduleModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={rescheduleLoading || !newTime}
+            >
+              {rescheduleLoading ? 'Rescheduling...' : 'Confirm Reschedule'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

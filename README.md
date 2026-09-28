@@ -402,6 +402,35 @@ npm run dev
 
 ---
 
+### Docker Compose Setup (Optional)
+To run the complete ecosystem (PostgreSQL, Spring Boot backend, and React Nginx frontend) via Docker containers:
+```bash
+docker-compose up --build
+```
+* **Frontend:** Accessible at `http://localhost:80` (or `http://localhost:3000`)
+* **Backend API:** Accessible at `http://localhost:8080`
+* **PostgreSQL:** Accessible on port `5432`
+* To tear down:
+```bash
+docker-compose down
+```
+
+---
+
+### Running Automated Tests
+Run the comprehensive Spring Boot test suite (80 unit, service, security, emergency allocation, and integration tests):
+```bash
+cd backend
+mvn test
+```
+Build and validate the React production bundle:
+```bash
+cd frontend
+npm run build
+```
+
+---
+
 ## 🔑 Demo Credentials
 
 CarePulse includes pre-seeded demo accounts. The login screen ([http://localhost:5173/login](http://localhost:5173/login)) provides **1-click Demo Login Pill Buttons** for instant evaluation:
