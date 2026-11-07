@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calendar, User, Stethoscope, Activity, Pill, ShieldCheck } from 'lucide-react';
+import { FileText, Calendar, User, Stethoscope, Activity, Pill, ShieldCheck, Search, Printer } from 'lucide-react';
 import { recordService } from '../../services/api';
 
 const PatientRecords = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -20,30 +21,69 @@ const PatientRecords = () => {
     fetchRecords();
   }, []);
 
+  const filtered = records.filter((rec) => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      rec.diagnosis?.toLowerCase().includes(term) ||
+      rec.doctor?.fullName?.toLowerCase().includes(term) ||
+      rec.doctor?.specialization?.toLowerCase().includes(term) ||
+      rec.symptoms?.toLowerCase().includes(term) ||
+      rec.treatment?.toLowerCase().includes(term) ||
+      rec.consultationNotes?.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div>
-      <div style={{ marginBottom: '28px' }}>
-        <h2 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>Medical Records & Health Timeline</h2>
-        <p style={{ color: 'var(--slate-600)' }}>
-          Secure, comprehensive chronological repository of your clinical consultations, diagnostic evaluations, and therapeutic plans.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>Medical Records & Health Timeline</h2>
+          <p style={{ color: 'var(--slate-600)' }}>
+            Secure, comprehensive chronological repository of your clinical consultations, diagnostic evaluations, and therapeutic plans.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+            <Printer size={16} /> Print Official Records
+          </button>
+        </div>
+      </div>
+
+      {/* Security and Integrity Banner */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid var(--slate-200)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '20px', fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+        <ShieldCheck size={18} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+        <span>
+          <strong>Tamper-Proof Healthcare Records:</strong> All diagnoses, prescriptions, and clinical notes are legally signed by licensed medical practitioners and cannot be altered by patients.
+        </span>
+      </div>
+
+      {/* Search Input */}
+      <div style={{ maxWidth: '380px', marginBottom: '20px' }}>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Search diagnoses, doctors, or symptoms..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--slate-500)' }}>
           Loading your health timeline...
         </div>
-      ) : records.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 20px' }}>
           <FileText size={40} style={{ color: 'var(--slate-400)', margin: '0 auto 12px' }} />
           <h3 style={{ fontSize: '1.25rem', marginBottom: '6px' }}>No medical records found</h3>
           <p style={{ color: 'var(--slate-500)', fontSize: '0.9375rem' }}>
-            Medical records will automatically populate here after your doctor concludes a consultation.
+            {search ? 'No records match your search criteria.' : 'Medical records will automatically populate here after your doctor concludes a consultation.'}
           </p>
         </div>
       ) : (
         <div className="timeline">
-          {records.map((rec) => (
+          {filtered.map((rec) => (
             <div key={rec.id} className="timeline-item">
               <div className="timeline-dot" />
               <div className="timeline-card">
@@ -63,7 +103,7 @@ const PatientRecords = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', color: 'var(--slate-700)', fontSize: '0.9375rem' }}>
                   <Stethoscope size={18} style={{ color: 'var(--primary-600)' }} />
                   <span>
-                    <strong>Attending Physician:</strong> {rec.doctor.fullName} ({rec.doctor.specialization})
+                    <strong>Attending Physician:</strong> Dr. {rec.doctor.fullName} ({rec.doctor.specialization})
                   </span>
                 </div>
 

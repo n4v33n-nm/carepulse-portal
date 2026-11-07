@@ -1,6 +1,10 @@
 package com.carepulse.service;
 
 import com.carepulse.dto.AppointmentRequest;
+import com.carepulse.dto.MedicalRecordRequest;
+import com.carepulse.dto.PrescriptionRequest;
+import com.carepulse.entity.MedicalRecord;
+import com.carepulse.entity.Prescription;
 import com.carepulse.dto.AppointmentRescheduleRequestDTO;
 import com.carepulse.dto.AppointmentStatusUpdateRequest;
 import com.carepulse.entity.Appointment;
@@ -35,6 +39,8 @@ public class AppointmentService {
     private final AppointmentWaitlistService waitlistService;
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
     private final EmergencyDoctorRosterRepository emergencyRosterRepository;
+    private final MedicalRecordService medicalRecordService;
+    private final PrescriptionService prescriptionService;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientRepository patientRepository,
@@ -44,7 +50,9 @@ public class AppointmentService {
                               CaregiverService caregiverService,
                               AppointmentWaitlistService waitlistService,
                               DoctorAvailabilityRepository doctorAvailabilityRepository,
-                              EmergencyDoctorRosterRepository emergencyRosterRepository) {
+                              EmergencyDoctorRosterRepository emergencyRosterRepository,
+                              MedicalRecordService medicalRecordService,
+                              PrescriptionService prescriptionService) {
         this.appointmentRepository = appointmentRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -54,6 +62,8 @@ public class AppointmentService {
         this.waitlistService = waitlistService;
         this.doctorAvailabilityRepository = doctorAvailabilityRepository;
         this.emergencyRosterRepository = emergencyRosterRepository;
+        this.medicalRecordService = medicalRecordService;
+        this.prescriptionService = prescriptionService;
     }
 
     @Transactional
@@ -234,6 +244,32 @@ public class AppointmentService {
             notificationService.createNotification(appointment.getPatient().getUser(), "Appointment Cancelled", statusMsg, "APPOINTMENT");
             notificationService.createNotification(appointment.getDoctor().getUser(), "Appointment Cancelled", "Appointment with " + appointment.getPatient().getFullName() + " on " + dateStr + " was cancelled.", "APPOINTMENT");
         } else if ("COMPLETED".equalsIgnoreCase(newStatus)) {
+            MedicalRecord savedRecord = null;
+            if (request.getDiagnosis() != null && !request.getDiagnosis().trim().isEmpty()) {
+                MedicalRecordRequest recordReq = new MedicalRecordRequest();
+                recordReq.setPatientId(appointment.getPatient().getId());
+                recordReq.setRecordDate(appointment.getAppointmentDate());
+                recordReq.setDiagnosis(request.getDiagnosis().trim());
+                recordReq.setSymptoms(request.getSymptoms());
+                recordReq.setTreatment(request.getTreatment() != null && !request.getTreatment().trim().isEmpty()
+                        ? request.getTreatment().trim() : "Follow physician instructions.");
+                recordReq.setConsultationNotes(request.getConsultationNotes());
+                savedRecord = medicalRecordService.createRecord(userEmail, recordReq);
+            }
+
+            if (request.getMedicineName() != null && !request.getMedicineName().trim().isEmpty()) {
+                PrescriptionRequest presReq = new PrescriptionRequest();
+                presReq.setPatientId(appointment.getPatient().getId());
+                presReq.setMedicalRecordId(savedRecord != null ? savedRecord.getId() : null);
+                presReq.setMedicineName(request.getMedicineName().trim());
+                presReq.setDosage(request.getDosage() != null ? request.getDosage().trim() : "500mg");
+                presReq.setFrequency(request.getFrequency() != null ? request.getFrequency().trim() : "Once daily");
+                presReq.setDuration(request.getDuration() != null ? request.getDuration().trim() : "7 days");
+                presReq.setInstructions(request.getInstructions());
+                presReq.setIssuedDate(appointment.getAppointmentDate());
+                prescriptionService.createPrescription(userEmail, presReq);
+            }
+
             notificationService.createNotification(appointment.getPatient().getUser(), "Consultation Completed", "Your consultation with Dr. " + appointment.getDoctor().getFullName() + " is completed. Check your medical records and prescriptions.", "APPOINTMENT");
         }
 

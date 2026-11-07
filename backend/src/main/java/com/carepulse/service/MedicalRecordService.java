@@ -5,6 +5,7 @@ import com.carepulse.entity.Doctor;
 import com.carepulse.entity.MedicalRecord;
 import com.carepulse.entity.Patient;
 import com.carepulse.exception.ResourceNotFoundException;
+import com.carepulse.repository.AppointmentReassignmentRepository;
 import com.carepulse.repository.AppointmentRepository;
 import com.carepulse.repository.DoctorRepository;
 import com.carepulse.repository.EmergencyRequestRepository;
@@ -27,6 +28,7 @@ public class MedicalRecordService {
     private final CaregiverService caregiverService;
     private final AppointmentRepository appointmentRepository;
     private final EmergencyRequestRepository emergencyRequestRepository;
+    private final AppointmentReassignmentRepository appointmentReassignmentRepository;
 
     public MedicalRecordService(MedicalRecordRepository medicalRecordRepository,
                                 PatientRepository patientRepository,
@@ -35,7 +37,8 @@ public class MedicalRecordService {
                                 AuditLogService auditLogService,
                                 CaregiverService caregiverService,
                                 AppointmentRepository appointmentRepository,
-                                EmergencyRequestRepository emergencyRequestRepository) {
+                                EmergencyRequestRepository emergencyRequestRepository,
+                                AppointmentReassignmentRepository appointmentReassignmentRepository) {
         this.medicalRecordRepository = medicalRecordRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
@@ -44,6 +47,7 @@ public class MedicalRecordService {
         this.caregiverService = caregiverService;
         this.appointmentRepository = appointmentRepository;
         this.emergencyRequestRepository = emergencyRequestRepository;
+        this.appointmentReassignmentRepository = appointmentReassignmentRepository;
     }
 
     @Transactional
@@ -97,7 +101,8 @@ public class MedicalRecordService {
 
         return appointmentRepository.existsByDoctorIdAndPatientId(doctor.getId(), patientId)
                 || emergencyRequestRepository.existsByAssignedDoctorIdAndPatientId(doctor.getId(), patientId)
-                || medicalRecordRepository.existsByPatientIdAndDoctorId(patientId, doctor.getId());
+                || medicalRecordRepository.existsByPatientIdAndDoctorId(patientId, doctor.getId())
+                || appointmentReassignmentRepository.existsByReplacementDoctorIdAndAppointmentPatientId(doctor.getId(), patientId);
     }
 
     public List<MedicalRecord> getRecordsForPatientId(Long patientId, String viewerEmail, String role) {

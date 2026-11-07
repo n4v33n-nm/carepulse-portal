@@ -30,5 +30,7 @@ public interface AppointmentReassignmentRepository extends JpaRepository<Appoint
 
     @Query("SELECT r FROM AppointmentReassignment r WHERE r.appointment.id = :appointmentId ORDER BY r.reassignedAt DESC")
     List<AppointmentReassignment> findAllByAppointmentIdOrderByReassignedAtDesc(@Param("appointmentId") Long appointmentId);
+
+    boolean existsByReplacementDoctorIdAndAppointmentPatientId(Long doctorId, Long patientId);
 }
 

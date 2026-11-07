@@ -17,10 +17,17 @@ import {
   Phone,
   MessageSquare,
   UserCheck,
+  Printer,
+  Stethoscope,
+  Activity,
+  ClipboardList,
+  ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { appointmentService, recordService, prescriptionService, notificationService, emergencyService, doctorLeaveService } from '../../services/api';
 import EmergencyAssistanceModal from '../../components/EmergencyAssistanceModal';
+import Modal from '../../components/Modal';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
@@ -32,6 +39,11 @@ const PatientDashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+
+  // Phase 4: Patient Medical History States
+  const [historyTab, setHistoryTab] = useState('ALL'); // 'ALL' | 'CONSULTATIONS' | 'PRESCRIPTIONS' | 'APPOINTMENTS'
+  const [historySearch, setHistorySearch] = useState('');
+  const [selectedRecordDetail, setSelectedRecordDetail] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
@@ -635,44 +647,307 @@ const PatientDashboard = () => {
         </div>
       </div>
 
-      {/* Health Timeline Preview */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">
-            <FileText size={20} className="text-primary" /> Recent Health Timeline
-          </span>
-          <Link to="/patient/records" className="btn btn-outline btn-sm">
-            Full Health Timeline
-          </Link>
+      {/* Patient Medical History & Clinical Records Section (Phase 4) */}
+      <div className="card" style={{ marginBottom: '28px' }}>
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ClipboardList size={22} className="text-primary" /> Patient Medical History & Clinical Documentation
+            </span>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--slate-500)', marginTop: '2px' }}>
+              Comprehensive longitudinal health timeline of physician diagnoses, clinical notes, digital prescriptions, and previous consultations.
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => window.print()}
+              title="Print Medical Summary"
+            >
+              <Printer size={14} /> Print Summary
+            </button>
+            <Link to="/patient/records" className="btn btn-outline btn-sm">
+              All Records Repository →
+            </Link>
+          </div>
         </div>
 
-        {records.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate-500)', fontSize: '0.875rem' }}>
-            No consultation notes or medical records added yet.
+        {/* Filter Tabs and Instant Search */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${historyTab === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setHistoryTab('ALL')}
+            >
+              <Activity size={14} /> Unified Journey ({records.length + prescriptions.length + appointments.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${historyTab === 'CONSULTATIONS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setHistoryTab('CONSULTATIONS')}
+            >
+              <FileText size={14} /> Diagnoses & Notes ({records.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${historyTab === 'PRESCRIPTIONS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setHistoryTab('PRESCRIPTIONS')}
+            >
+              <Pill size={14} /> Prescriptions ({prescriptions.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${historyTab === 'APPOINTMENTS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setHistoryTab('APPOINTMENTS')}
+            >
+              <Calendar size={14} /> Past Appointments ({appointments.length})
+            </button>
           </div>
-        ) : (
-          <div className="timeline">
-            {records.slice(0, 3).map((rec) => (
-              <div key={rec.id} className="timeline-item">
-                <div className="timeline-dot" />
-                <div className="timeline-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--slate-900)' }}>{rec.diagnosis}</span>
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--slate-500)', fontWeight: 500 }}>
-                      {rec.recordDate}
-                    </span>
+
+          <div style={{ minWidth: '220px', maxWidth: '320px', flex: 1 }}>
+            <input
+              type="text"
+              className="form-control"
+              style={{ fontSize: '0.8125rem', padding: '6px 12px' }}
+              placeholder="Search diagnoses, doctors, medicines..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Content Display */}
+        {(() => {
+          const s = historySearch.toLowerCase();
+
+          const filteredRecords = records.filter((r) =>
+            !s ||
+            r.diagnosis?.toLowerCase().includes(s) ||
+            r.doctor?.fullName?.toLowerCase().includes(s) ||
+            r.doctor?.specialization?.toLowerCase().includes(s) ||
+            r.symptoms?.toLowerCase().includes(s) ||
+            r.treatment?.toLowerCase().includes(s) ||
+            r.consultationNotes?.toLowerCase().includes(s)
+          );
+
+          const filteredPrescriptions = prescriptions.filter((p) =>
+            !s ||
+            p.medicineName?.toLowerCase().includes(s) ||
+            p.doctor?.fullName?.toLowerCase().includes(s) ||
+            p.dosage?.toLowerCase().includes(s) ||
+            p.instructions?.toLowerCase().includes(s)
+          );
+
+          const filteredAppointments = appointments.filter((a) =>
+            !s ||
+            a.doctor?.fullName?.toLowerCase().includes(s) ||
+            a.doctor?.specialization?.toLowerCase().includes(s) ||
+            a.reason?.toLowerCase().includes(s) ||
+            a.status?.toLowerCase().includes(s) ||
+            a.consultationNotes?.toLowerCase().includes(s)
+          );
+
+          const totalItems =
+            (historyTab === 'ALL' ? (filteredRecords.length + filteredPrescriptions.length + filteredAppointments.length) :
+             historyTab === 'CONSULTATIONS' ? filteredRecords.length :
+             historyTab === 'PRESCRIPTIONS' ? filteredPrescriptions.length :
+             filteredAppointments.length);
+
+          if (totalItems === 0) {
+            return (
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--slate-500)', fontSize: '0.875rem' }}>
+                <ClipboardList size={36} style={{ color: 'var(--slate-400)', margin: '0 auto 10px' }} />
+                <p style={{ fontWeight: 600, color: 'var(--slate-700)', marginBottom: '4px' }}>
+                  No medical history found matching your filters.
+                </p>
+                <p style={{ fontSize: '0.8125rem' }}>
+                  Medical records, doctor consultation notes, and prescriptions will appear here as your care journey progresses.
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Consultations & Diagnoses Section */}
+              {(historyTab === 'ALL' || historyTab === 'CONSULTATIONS') && filteredRecords.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={15} className="text-primary" /> Physician Diagnoses & Clinical Notes ({filteredRecords.length})
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--primary-700)', marginBottom: '8px', fontWeight: 600 }}>
-                    Attending Physician: {rec.doctor.fullName} ({rec.doctor.specialization})
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: 'var(--slate-600)' }}>
-                    <strong>Treatment Plan:</strong> {rec.treatment}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {filteredRecords.map((rec) => (
+                      <div
+                        key={`rec-${rec.id}`}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--slate-200)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '16px',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--slate-900)', margin: 0 }}>
+                                {rec.diagnosis}
+                              </h4>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, background: 'var(--primary-50)', color: 'var(--primary-700)', padding: '2px 8px', borderRadius: '4px' }}>
+                                Clinical Record #{rec.id}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--primary-700)', fontWeight: 600, marginTop: '2px' }}>
+                              Attending Physician: Dr. {rec.doctor?.fullName} ({rec.doctor?.specialization})
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', color: 'var(--slate-500)', fontWeight: 500 }}>
+                            <Calendar size={14} /> {rec.recordDate}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px', background: 'var(--slate-50)', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: '10px', fontSize: '0.8125rem' }}>
+                          <div>
+                            <span style={{ color: 'var(--slate-500)', display: 'block', fontWeight: 600 }}>Reported Symptoms</span>
+                            <span style={{ color: 'var(--slate-800)' }}>{rec.symptoms || 'None recorded'}</span>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--slate-500)', display: 'block', fontWeight: 600 }}>Prescribed Treatment Plan</span>
+                            <span style={{ color: 'var(--slate-800)' }}>{rec.treatment || 'Standard clinical observation'}</span>
+                          </div>
+                        </div>
+
+                        {rec.consultationNotes && (
+                          <div style={{ background: '#f8fafc', borderLeft: '3px solid var(--primary-600)', padding: '8px 12px', borderRadius: '0 6px 6px 0', fontSize: '0.8125rem', color: 'var(--slate-700)', marginBottom: '8px' }}>
+                            <strong>Doctor Consultation Notes:</strong> {rec.consultationNotes}
+                          </div>
+                        )}
+
+                        {rec.clinicalSummary && (
+                          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '6px', fontSize: '0.8125rem', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                            <span><strong>Physician-Verified Summary:</strong> {rec.clinicalSummary}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <ShieldCheck size={13} /> Verified
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
+
+              {/* Prescriptions Section */}
+              {(historyTab === 'ALL' || historyTab === 'PRESCRIPTIONS') && filteredPrescriptions.length > 0 && (
+                <div style={{ marginTop: historyTab === 'ALL' ? '12px' : 0 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Pill size={15} className="text-teal" /> Prescribed Pharmaceutical Regimens ({filteredPrescriptions.length})
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                    {filteredPrescriptions.map((pres) => (
+                      <div
+                        key={`pres-${pres.id}`}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--teal-200)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '14px',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <div>
+                            <strong style={{ fontSize: '1rem', color: 'var(--slate-900)' }}>{pres.medicineName}</strong>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--teal-700)', background: 'var(--teal-50)', display: 'inline-block', padding: '1px 6px', borderRadius: '4px', marginTop: '2px' }}>
+                              {pres.dosage}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>{pres.issuedDate}</span>
+                        </div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)', marginBottom: '4px' }}>
+                          <strong>Regimen:</strong> {pres.frequency} • {pres.duration}
+                        </div>
+                        {pres.instructions && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', fontStyle: 'italic', marginBottom: '6px' }}>
+                            {pres.instructions}
+                          </div>
+                        )}
+                        <div style={{ borderTop: '1px solid var(--slate-100)', paddingTop: '6px', fontSize: '0.75rem', color: 'var(--slate-500)' }}>
+                          Prescribed by Dr. {pres.doctor?.fullName || 'Physician'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Past Appointments Section */}
+              {(historyTab === 'ALL' || historyTab === 'APPOINTMENTS') && filteredAppointments.length > 0 && (
+                <div style={{ marginTop: historyTab === 'ALL' ? '12px' : 0 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={15} className="text-indigo" /> Consultation Visit History ({filteredAppointments.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {filteredAppointments.map((appt) => (
+                      <div
+                        key={`appt-${appt.id}`}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--slate-200)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '12px 16px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: appt.status === 'COMPLETED' ? '#ecfdf5' : appt.status === 'CANCELLED' ? '#fef2f2' : 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: appt.status === 'COMPLETED' ? '#059669' : appt.status === 'CANCELLED' ? '#dc2626' : 'var(--primary-600)', flexShrink: 0 }}>
+                            <Calendar size={18} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: 'var(--slate-900)', fontSize: '0.9375rem' }}>
+                              Dr. {appt.doctor?.fullName} ({appt.doctor?.specialization})
+                            </div>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+                              Reason: {appt.reason}
+                            </div>
+                            {(appt.consultationNotes || appt.cancellationReason) && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '2px' }}>
+                                {appt.consultationNotes ? `Remarks: ${appt.consultationNotes}` : `Cancellation: ${appt.cancellationReason}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <span className={`badge badge-${appt.status.toLowerCase()}`}>
+                            {appt.status}
+                          </span>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginTop: '4px' }}>
+                            {appt.appointmentDate} at {appt.appointmentTime}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Data Integrity Assurance */}
+              <div style={{ borderTop: '1px solid var(--slate-100)', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--slate-500)' }}>
+                <ShieldCheck size={16} style={{ color: 'var(--primary-600)' }} />
+                <span>
+                  Official Physician Documentation: All diagnoses, consultation notes, and prescriptions are immutable by patients and cryptographically audited by CarePulse Healthcare Systems.
+                </span>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Emergency Requests History */}

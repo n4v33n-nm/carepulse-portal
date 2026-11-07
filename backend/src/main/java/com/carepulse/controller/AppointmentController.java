@@ -63,7 +63,7 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.getAppointmentById(id, user.getEmail(), user.getRole()));
     }
 
-    @PutMapping("/{id}/status")
+    @RequestMapping(value = "/{id}/status", method = {RequestMethod.PUT, RequestMethod.PATCH})
     public ResponseEntity<Appointment> updateStatus(
             @PathVariable Long id,
             Authentication authentication,
