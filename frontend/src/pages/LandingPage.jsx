@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Activity,
   ShieldCheck,
-  Bot,
+  MessageSquare,
   Calendar,
   FileText,
   Users,
@@ -49,7 +49,7 @@ const LandingPage = () => {
         <nav style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
           <a href="#about" style={{ color: 'var(--slate-600)', fontWeight: 500, fontSize: '0.9375rem' }}>About</a>
           <a href="#features" style={{ color: 'var(--slate-600)', fontWeight: 500, fontSize: '0.9375rem' }}>Features</a>
-          <a href="#ai-companion" style={{ color: 'var(--slate-600)', fontWeight: 500, fontSize: '0.9375rem' }}>AI Companion</a>
+          <a href="#doctor-connect" style={{ color: 'var(--slate-600)', fontWeight: 500, fontSize: '0.9375rem' }}>DoctorConnect</a>
           <a href="#security" style={{ color: 'var(--slate-600)', fontWeight: 500, fontSize: '0.9375rem' }}>Security</a>
         </nav>
 
@@ -214,7 +214,7 @@ const LandingPage = () => {
               { icon: <Calendar />, title: 'Doctor Discovery & Booking', desc: 'Filter specialists by Cardiology, Dermatology, or General Medicine. Book real-time available 30-min slots with conflict prevention.' },
               { icon: <FileText />, title: 'Unified Medical Records', desc: 'Chronological health timeline tracking patient symptoms, clinical assessments, treatment protocols, and consultation history.' },
               { icon: <Pill />, title: 'Digital Prescriptions', desc: 'Structured medical cards with dosage, frequency, course duration, and pharmacist/patient follow-up notes.' },
-              { icon: <Bot />, title: 'AI Health Companion', desc: 'Guidance engine assisting patients in organizing symptoms, generating consultation questions, and understanding preparation.' },
+              { icon: <MessageSquare />, title: 'DoctorConnect Communication', desc: 'Direct, secure communication channel connecting patients with their appointed physicians for health questions and clinical guidance.' },
               { icon: <Users />, title: 'Caregiver Delegations', desc: 'Secure proxy permissions allowing family members to view appointments or records while patient retains revoke controls.' },
               { icon: <ShieldCheck />, title: 'Empathy Engine', desc: 'Personalized communication preference (Simple, Supportive, Professional) adapting notification and assistance tone.' },
             ].map((f, i) => (
@@ -228,8 +228,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* AI Health Companion Section with Mandatory Safety Disclaimer */}
-      <section id="ai-companion" style={{ padding: '80px 40px', background: '#ffffff', maxWidth: '1100px', margin: '0 auto' }}>
+      {/* DoctorConnect Section with Professional Clinical Communication */}
+      <section id="doctor-connect" style={{ padding: '80px 40px', background: '#ffffff', maxWidth: '1100px', margin: '0 auto' }}>
         <div
           style={{
             background: 'linear-gradient(135deg, var(--slate-900), var(--primary-900))',
@@ -256,13 +256,13 @@ const LandingPage = () => {
                 marginBottom: '20px',
               }}
             >
-              <Bot size={16} /> Clinical Prep Assistant
+              <MessageSquare size={16} /> Direct Doctor Communication
             </div>
             <h2 style={{ color: 'white', fontSize: '2.25rem', marginBottom: '18px' }}>
-              Meet your AI Health Companion
+              Connect Directly with Your Doctors
             </h2>
             <p style={{ color: 'var(--slate-300)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '24px' }}>
-              Never feel unprepared for a medical visit again. Your companion helps you organize medical questions, build symptom timelines, and learn what information to tell your doctor.
+              Stay connected with your healthcare provider between visits. Submit clinical questions, receive timely verified guidance, and track conversation history with your appointed physicians.
             </p>
             <div
               style={{
@@ -275,7 +275,7 @@ const LandingPage = () => {
                 lineHeight: 1.4,
               }}
             >
-              <strong>Safety Guardrail:</strong> This AI provides general informational support and does not provide medical diagnosis or replace professional medical advice.
+              <strong>Clinical Oversight:</strong> Inquiries are answered directly by board-certified physicians assigned to your appointments, backed by role-based access security.
             </div>
           </div>
 
@@ -289,7 +289,7 @@ const LandingPage = () => {
             }}
           >
             <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '14px', color: 'var(--slate-900)' }}>
-              Interactive Consultation Assistant Preview
+              DoctorConnect Inquiry Preview
             </div>
             <div
               style={{
@@ -301,7 +301,7 @@ const LandingPage = () => {
                 marginBottom: '12px',
               }}
             >
-              "What should I prepare before my cardiology consultation?"
+              "Hello Dr. Jenkins, what are safe non-medicinal steps to alleviate mild tension headaches while working?"
             </div>
             <div
               style={{
@@ -313,10 +313,10 @@ const LandingPage = () => {
                 lineHeight: 1.4,
               }}
             >
-              • List your current blood pressure readings.<br />
-              • Bring all active prescription bottles.<br />
-              • Note what time palpitations or fatigue occur.<br />
-              • Prioritize 2-3 key questions for Dr. Jenkins.
+              • Maintain hydration (500-750ml water throughout the morning).<br />
+              • Take 5-minute screen breaks every hour and adjust screen brightness.<br />
+              • Apply a cool compress to your temples or neck.<br />
+              • If symptoms escalate suddenly, reach out to our clinic immediately.
             </div>
           </div>
         </div>

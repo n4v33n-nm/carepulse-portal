@@ -15,7 +15,6 @@ import DoctorDiscovery from './pages/patient/DoctorDiscovery';
 import PatientAppointments from './pages/patient/PatientAppointments';
 import PatientRecords from './pages/patient/PatientRecords';
 import PatientPrescriptions from './pages/patient/PatientPrescriptions';
-import AiCompanionPage from './pages/patient/AiCompanionPage';
 import CaregiverPage from './pages/patient/CaregiverPage';
 import DoctorConnectPage from './pages/patient/DoctorConnectPage';
 
@@ -131,7 +130,8 @@ const App = () => {
         <Route path="records" element={<PatientRecords />} />
         <Route path="prescriptions" element={<PatientPrescriptions />} />
         <Route path="doctor-connect" element={<DoctorConnectPage />} />
-        <Route path="ai-companion" element={<AiCompanionPage />} />
+        {/* Graceful redirect for old AI companion links directly to DoctorConnect */}
+        <Route path="ai-companion" element={<Navigate to="/patient/doctor-connect" replace />} />
         <Route path="caregivers" element={<CaregiverPage />} />
       </Route>
 

@@ -87,8 +87,8 @@ async function run() {
     const prescriptions = await get('/api/prescriptions/my', patientToken);
     console.log('Patient Prescriptions:', prescriptions.status === 200 ? 'PASS' : 'FAIL');
 
-    const aiResp = await post('/api/ai/chat', { message: 'I have a mild headache.' }, patientToken);
-    console.log('AI Companion & Disclaimer:', aiResp.status === 200 && aiResp.data?.disclaimer ? 'PASS' : 'FAIL');
+    const docConnect = await get('/api/doctor-connect/conversations', patientToken);
+    console.log('DoctorConnect Conversations:', docConnect.status === 200 ? 'PASS' : 'FAIL');
 
     const emergencyMy = await get('/api/emergency-requests/my', patientToken);
     console.log('Patient Emergency Requests:', emergencyMy.status === 200 ? 'PASS' : 'FAIL');

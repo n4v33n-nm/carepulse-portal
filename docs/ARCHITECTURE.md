@@ -31,14 +31,14 @@ flowchart TD
         ApptCtrl["AppointmentController (/api/appointments)"]
         RecordCtrl["MedicalRecordController (/api/records)"]
         PrescCtrl["PrescriptionController (/api/prescriptions)"]
-        AiCtrl["AiCompanionController (/api/ai)"]
+        DoctorConnectCtrl["DoctorConnectController (/api/doctor-connect)"]
         AdminCtrl["AdminController (/api/admin & /api/audit-logs)"]
         SecFilter -->|Authenticated Principal| AuthCtrl
         SecFilter -->|Role: PATIENT, DOCTOR, ADMIN| DoctorCtrl
         SecFilter -->|Role: PATIENT, DOCTOR, ADMIN| ApptCtrl
         SecFilter -->|Role: DOCTOR, PATIENT, ADMIN| RecordCtrl
         SecFilter -->|Role: DOCTOR, PATIENT, ADMIN| PrescCtrl
-        SecFilter -->|Role: ANY| AiCtrl
+        SecFilter -->|Role: PATIENT, DOCTOR, ADMIN| DoctorConnectCtrl
         SecFilter -->|Role: ADMIN| AdminCtrl
     end
 
@@ -48,7 +48,7 @@ flowchart TD
         ApptService["AppointmentService (Collision Lock)"]
         RecordService["MedicalRecordService"]
         PrescriptionService["PrescriptionService"]
-        AiService["AiHealthCompanionService (Empathy Engine)"]
+        DoctorConnectService["DoctorConnectService (Clinical Messaging)"]
         CaregiverService["CaregiverService"]
         AuditService["AuditLogService"]
         NotifService["NotificationService"]
@@ -58,7 +58,7 @@ flowchart TD
         ApptCtrl --> ApptService
         RecordCtrl --> RecordService
         PrescCtrl --> PrescriptionService
-        AiCtrl --> AiService
+        DoctorConnectCtrl --> DoctorConnectService
         AdminCtrl --> AuditService
         ApptService --> NotifService
         ApptService --> AuditService
@@ -119,7 +119,7 @@ flowchart TD
 ### 4. Service Layer (Domain Logic)
 * **Conflict-Free Scheduling:** Computes doctor availability windows minus active appointments to prevent double-booking collisions.
 * **Empathy Engine™:** Adapts response phrasing dynamically according to user preference (`SIMPLE`, `SUPPORTIVE`, `PROFESSIONAL`).
-* **Clinical Safety Guardrails:** Attaches immutable informational disclaimers to all AI companion conversations and alerts users during potential emergencies.
+* **DoctorConnect Clinical Communication:** Provides verified, direct asynchronous consultation between patients and their appointed doctors with HIPAA-aligned audit trails.
 * **Cross-Cutting Events:** Automatically triggers audit log entries and persistent in-app notifications upon critical events (e.g. appointment status updates, record creation).
 
 ### 5. Repository Layer (Spring Data JPA)
@@ -319,8 +319,8 @@ flowchart TD
    - In-app notification triggers automatically on appointment cancellation, inviting the queued patient to book.
 4. **Data-Grounded Wait-Time Estimation (`AppointmentWaitTimeService`):**
    - Calculates real queue metrics: Number of patients ahead scheduled on the same date multiplied by configured consultation duration, adjusted for active emergency cases.
-5. **AI Safety Boundaries & Physician Verification:**
-   - AI companion disclaims diagnosis and redirects emergency symptoms (`chest pain`, `shortness of breath`) to 911/112.
+5. **Direct Clinical Communication (DoctorConnect):**
+   - Enables direct asynchronous patient-physician inquiries, eliminating intermediate conversational AI.
    - AI clinical record summaries require explicit physician sign-off (`APPROVE`, `EDIT_AND_APPROVE`, `REJECT`) before being treated as finalized clinical records.
 
 

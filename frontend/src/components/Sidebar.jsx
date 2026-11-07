@@ -7,7 +7,6 @@ import {
   Calendar,
   FileText,
   Pill,
-  Bot,
   Users,
   Clock,
   Shield,
@@ -71,10 +70,6 @@ const Sidebar = () => {
             <NavLink to="/patient/doctor-connect" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <MessageSquare size={18} />
               <span>DoctorConnect</span>
-            </NavLink>
-            <NavLink to="/patient/ai-companion" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Bot size={18} />
-              <span>AI Companion</span>
             </NavLink>
             <NavLink to="/patient/caregivers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Users size={18} />

@@ -16,7 +16,7 @@ Authorization: Bearer <jwt-token>
 5. [Digital Prescriptions (`/api/prescriptions`)](#5-digital-prescriptions)
 6. [Caregiver Proxy Access (`/api/caregivers`)](#6-caregiver-proxy-access)
 7. [Notifications (`/api/notifications`)](#7-notifications)
-8. [AI Health Companion (`/api/ai`)](#8-ai-health-companion)
+8. [DoctorConnect Communication (`/api/doctor-connect`)](#8-doctorconnect-communication)
 9. [Platform Administration & Auditing (`/api/admin` & `/api/audit-logs`)](#9-platform-administration--auditing)
 10. [System Health & Liveness (`/api/health`)](#10-system-health--liveness)
 11. [Error Handling & Security Architecture](#11-error-handling--security-architecture)
@@ -721,26 +721,50 @@ Fetches user notifications.
 
 ---
 
-## 8. AI Health Companion
+## 8. DoctorConnect Communication
 
-### `POST /api/ai/chat`
-Interacts with the AI companion. Formats output according to user empathy preference (`SIMPLE`, `SUPPORTIVE`, `PROFESSIONAL`) and attaches medical disclaimers.
+### `POST /api/doctor-connect/conversations`
+Initiates a direct clinical inquiry between an authorized patient and an appointed doctor.
 * **Auth Requirement:** JWT Bearer
-* **Allowed Roles:** `PATIENT`, `DOCTOR`, `ADMIN`
+* **Allowed Roles:** `PATIENT`
 * **Request Example:**
 ```json
 {
-  "message": "I have had a mild headache for 2 days. What should I do?"
+  "doctorId": 1,
+  "appointmentId": 12,
+  "subject": "Post-Consultation Headache Clarification",
+  "initialMessage": "Hello Dr. Jenkins, what are safe non-medicinal steps to alleviate mild tension headaches while working?"
 }
 ```
-* **Response Example (200 OK):**
+* **Response Example (201 Created):**
 ```json
 {
-  "response": "I hear that you've been experiencing a mild headache. Staying well-hydrated, resting in a quiet dim room, and taking breaks from digital screens can often provide relief. If the headache worsens, is accompanied by nausea or visual changes, please consult your physician.",
-  "tone": "SUPPORTIVE",
-  "disclaimer": "This AI provides general informational support and does not provide medical diagnosis or replace professional medical advice. Always consult a certified healthcare professional."
+  "id": 1,
+  "patientId": 1,
+  "patientName": "John Doe",
+  "doctorId": 1,
+  "doctorName": "Dr. Sarah Jenkins",
+  "subject": "Post-Consultation Headache Clarification",
+  "status": "OPEN",
+  "unreadByDoctor": true,
+  "unreadByPatient": false
 }
 ```
+
+### `GET /api/doctor-connect/conversations`
+Retrieves conversations filtered by role authority (patients see their inquiries, doctors see assigned inquiries, admins see all).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `DOCTOR`, `ADMIN`
+
+### `POST /api/doctor-connect/conversations/{id}/messages`
+Sends a reply or follow-up response in an active conversation.
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `PATIENT`, `DOCTOR`
+
+### `PATCH /api/doctor-connect/conversations/{id}/status`
+Updates conversation resolution status (`OPEN`, `ANSWERED`, `RESOLVED`, `CLOSED`).
+* **Auth Requirement:** JWT Bearer
+* **Allowed Roles:** `DOCTOR`, `ADMIN`
 
 ---
 

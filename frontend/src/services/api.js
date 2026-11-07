@@ -134,11 +134,6 @@ export const notificationService = {
   markAllRead: () => api.put('/notifications/read-all'),
 };
 
-export const aiService = {
-  chat: (data) => api.post('/ai/chat', data),
-  getDisclaimer: () => api.get('/ai/disclaimer'),
-};
-
 export const adminService = {
   getDashboardStats: () => api.get('/admin/dashboard'),
   getAllUsers: () => api.get('/admin/users'),

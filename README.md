@@ -7,7 +7,7 @@
 [![Security](https://img.shields.io/badge/Security-Spring%20Security%206%20%7C%20JJWT-red.svg?logo=jsonwebtokens)](https://jwt.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**CarePulse Portal** is a production-caliber, enterprise-grade healthcare coordination and clinical workflow management platform. Engineered to connect **Patients**, **Certified Physicians**, and **Healthcare Administrators** into a secure, cohesive ecosystem, CarePulse modernizes clinical scheduling, longitudinal medical records, e-prescribing, proxy caregiver delegations, and patient engagement through an adaptive, safety-first AI health companion.
+**CarePulse Portal** is a production-caliber, enterprise-grade healthcare coordination and clinical workflow management platform. Engineered to connect **Patients**, **Certified Physicians**, and **Healthcare Administrators** into a secure, cohesive ecosystem, CarePulse modernizes clinical scheduling, longitudinal medical records, e-prescribing, proxy caregiver delegations, and patient engagement through DoctorConnect asynchronous physician communication.
 
 Designed to reflect real-world healthcare SaaS standards, CarePulse features a decoupled client-server architecture with stateless JWT security, conflict-free scheduling algorithms, HIPAA-aligned audit trails, and an **Empathy Engine™** that dynamically aligns clinical terminology to patient communication preferences.
 
@@ -24,7 +24,7 @@ Designed to reflect real-world healthcare SaaS standards, CarePulse features a d
    * [Appointment & Scheduling](#4-appointment--scheduling-engine)
    * [Medical Records & Longitudinal Timeline](#5-medical-records-timeline)
    * [Digital Prescription Management](#6-digital-prescription-management)
-   * [AI Health Companion with Safety Disclaimers](#7-ai-health-companion)
+   * [DoctorConnect: Patient & Doctor Communication](#7-doctorconnect-patient--doctor-communication)
    * [Empathy Engine™](#8-empathy-engine-communication-adapter)
    * [Caregiver Proxy Access](#9-caregiver-proxy-access)
    * [In-App Notification System](#10-notification-system)
@@ -113,11 +113,11 @@ In conventional healthcare portals, patient engagement is frequently fragmented 
 * Structured e-prescriptions detailing medicine name, dosage, frequency, duration, and patient instructions.
 * Direct association with physician author and optional consultation medical record.
 
-### 7. AI Health Companion
-* Interactive health assistant designed to explain symptoms, medications, and general health guidelines.
-* **Mandatory Safety Disclaimer:** Every interaction displays:
-  > *"This AI provides general informational support and does not provide medical diagnosis or replace professional medical advice."*
-* **Emergency Triage:** Detects critical symptoms (chest pain, breathing difficulties, stroke signs) and directs users to immediate emergency care.
+### 7. DoctorConnect: Patient & Doctor Communication
+* Secure, asynchronous communication channel between patients and their appointed physicians.
+* **Patient Capabilities:** Select an active appointment or doctor, submit clinical inquiries, attach context, and view doctor response history with timestamps.
+* **Doctor Capabilities:** Review assigned patient inquiries, provide clinical guidance, and mark questions as resolved.
+* **Audited & Secure:** Every communication is governed by role-based access control and logged in the immutable audit trail.
 
 ### 8. Empathy Engine™ Communication Adapter
 * Allows patients to choose their preferred communication style via the navigation bar:
@@ -463,7 +463,7 @@ CarePulse includes pre-seeded demo accounts. The login screen ([http://localhost
 
 | Role | Name | Email | Password | Primary Capabilities |
 | :--- | :--- | :--- | :--- | :--- |
-| **Patient** | John Doe | `john.doe@example.com` | `Patient@123` | Doctor discovery, dynamic slot booking, medical timeline, AI companion |
+| **Patient** | John Doe | `john.doe@example.com` | `Patient@123` | Doctor discovery, dynamic slot booking, medical timeline, DoctorConnect |
 | **Patient** | Emma Watson | `emma.watson@example.com` | `Patient@123` | Patient dashboard, prescriptions, caregiver access |
 | **Doctor** | Dr. Sarah Jenkins | `dr.jenkins@carepulse.com` | `Doctor@123` | Cardiology specialist, appointment confirmation, availability planner |
 | **Doctor** | Dr. Marcus Vance | `dr.vance@carepulse.com` | `Doctor@123` | Neurology clinic appointments & clinical records |
@@ -481,7 +481,7 @@ Demonstration screenshots are stored in the [screenshots/](screenshots/) directo
 | **Patient Dashboard** | [screenshots/README.md](screenshots/README.md) |
 | **Doctor Search & Booking** | [screenshots/README.md](screenshots/README.md) |
 | **Medical Records Timeline** | [screenshots/README.md](screenshots/README.md) |
-| **AI Health Companion** | [screenshots/README.md](screenshots/README.md) |
+| **DoctorConnect Communication** | [screenshots/README.md](screenshots/README.md) |
 | **Admin Analytics Dashboard** | [screenshots/README.md](screenshots/README.md) |
 
 ---

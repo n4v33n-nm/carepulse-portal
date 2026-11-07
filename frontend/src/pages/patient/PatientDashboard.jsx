@@ -9,7 +9,6 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Bot,
   Users,
   Search,
   Sparkles,
@@ -76,7 +75,7 @@ const PatientDashboard = () => {
     } else {
       return upcomingAppointment
         ? `We're keeping you on track! You have an upcoming consultation with Dr. ${upcomingAppointment.doctor.fullName} on ${upcomingAppointment.appointmentDate} at ${upcomingAppointment.appointmentTime}. Remember to have any questions ready!`
-        : "Welcome back! Your health timeline is completely up to date. You can consult with a specialist or chat with your AI companion anytime.";
+        : "Welcome back! Your health timeline is completely up to date. You can consult with a specialist or message your doctor via DoctorConnect anytime.";
     }
   };
 
@@ -458,8 +457,8 @@ const PatientDashboard = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <Link to="/patient/ai-companion" className="btn btn-primary btn-sm">
-                  <Bot size={14} /> Prepare for Visit
+                <Link to="/patient/doctor-connect" className="btn btn-primary btn-sm">
+                  <MessageSquare size={14} /> Message Doctor
                 </Link>
                 <Link to="/patient/appointments" className="btn btn-secondary btn-sm">
                   Manage Booking
@@ -543,7 +542,7 @@ const PatientDashboard = () => {
             </Link>
 
             <Link
-              to="/patient/ai-companion"
+              to="/patient/records"
               className="card"
               style={{
                 padding: '14px 18px',
@@ -555,13 +554,13 @@ const PatientDashboard = () => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Bot size={20} style={{ color: 'var(--teal-600)' }} />
+                <FileText size={20} style={{ color: 'var(--teal-600)' }} />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--slate-900)' }}>
-                    AI Health Companion
+                    Medical Records
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)' }}>
-                    Prep questions & organize reports
+                    View clinical notes & diagnostic history
                   </div>
                 </div>
               </div>
