@@ -23,9 +23,12 @@ import {
   ClipboardList,
   ShieldCheck,
   Eye,
+  FileUp,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { appointmentService, recordService, prescriptionService, notificationService, emergencyService, doctorLeaveService } from '../../services/api';
+import { appointmentService, recordService, prescriptionService, notificationService, emergencyService, doctorLeaveService, reportService } from '../../services/api';
 import EmergencyAssistanceModal from '../../components/EmergencyAssistanceModal';
 import Modal from '../../components/Modal';
 
@@ -34,30 +37,33 @@ const PatientDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [records, setRecords] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [reports, setReports] = useState([]);
   const [emergencyRequests, setEmergencyRequests] = useState([]);
   const [pendingReassignments, setPendingReassignments] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
-  // Phase 4: Patient Medical History States
-  const [historyTab, setHistoryTab] = useState('ALL'); // 'ALL' | 'CONSULTATIONS' | 'PRESCRIPTIONS' | 'APPOINTMENTS'
+  // Phase 4 & 5: Patient Medical History States
+  const [historyTab, setHistoryTab] = useState('ALL'); // 'ALL' | 'CONSULTATIONS' | 'PRESCRIPTIONS' | 'APPOINTMENTS' | 'REPORTS'
   const [historySearch, setHistorySearch] = useState('');
   const [selectedRecordDetail, setSelectedRecordDetail] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
-      const [appRes, recRes, presRes, notifRes, emergRes, reassignRes] = await Promise.all([
+      const [appRes, recRes, presRes, notifRes, emergRes, reassignRes, repRes] = await Promise.all([
         appointmentService.getMyAppointments(),
         recordService.getMyRecords(),
         prescriptionService.getMyPrescriptions(),
         notificationService.getUnreadCount(),
         emergencyService.getMyEmergencyRequests().catch(() => ({ data: [] })),
         doctorLeaveService.getPatientPendingReassignments().catch(() => ({ data: [] })),
+        reportService.getMyReports().catch(() => ({ data: [] })),
       ]);
       setAppointments(appRes.data || []);
       setRecords(recRes.data || []);
       setPrescriptions(presRes.data || []);
+      setReports(repRes.data || []);
       setUnreadCount(notifRes.data?.unreadCount || 0);
       setEmergencyRequests(emergRes.data || []);
       setPendingReassignments(reassignRes.data || []);
@@ -681,7 +687,7 @@ const PatientDashboard = () => {
               className={`btn btn-sm ${historyTab === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setHistoryTab('ALL')}
             >
-              <Activity size={14} /> Unified Journey ({records.length + prescriptions.length + appointments.length})
+              <Activity size={14} /> Unified Journey ({records.length + prescriptions.length + appointments.length + reports.length})
             </button>
             <button
               type="button"
@@ -699,6 +705,13 @@ const PatientDashboard = () => {
             </button>
             <button
               type="button"
+              className={`btn btn-sm ${historyTab === 'REPORTS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setHistoryTab('REPORTS')}
+            >
+              <FileUp size={14} /> Reports & Scans ({reports.length})
+            </button>
+            <button
+              type="button"
               className={`btn btn-sm ${historyTab === 'APPOINTMENTS' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setHistoryTab('APPOINTMENTS')}
             >
@@ -711,7 +724,7 @@ const PatientDashboard = () => {
               type="text"
               className="form-control"
               style={{ fontSize: '0.8125rem', padding: '6px 12px' }}
-              placeholder="Search diagnoses, doctors, medicines..."
+              placeholder="Search diagnoses, doctors, medicines, reports..."
               value={historySearch}
               onChange={(e) => setHistorySearch(e.target.value)}
             />
@@ -749,10 +762,19 @@ const PatientDashboard = () => {
             a.consultationNotes?.toLowerCase().includes(s)
           );
 
+          const filteredReports = reports.filter((rep) =>
+            !s ||
+            rep.title?.toLowerCase().includes(s) ||
+            rep.reportType?.toLowerCase().includes(s) ||
+            rep.originalFilename?.toLowerCase().includes(s) ||
+            rep.clinicalNotes?.toLowerCase().includes(s)
+          );
+
           const totalItems =
-            (historyTab === 'ALL' ? (filteredRecords.length + filteredPrescriptions.length + filteredAppointments.length) :
+            (historyTab === 'ALL' ? (filteredRecords.length + filteredPrescriptions.length + filteredAppointments.length + filteredReports.length) :
              historyTab === 'CONSULTATIONS' ? filteredRecords.length :
              historyTab === 'PRESCRIPTIONS' ? filteredPrescriptions.length :
+             historyTab === 'REPORTS' ? filteredReports.length :
              filteredAppointments.length);
 
           if (totalItems === 0) {
@@ -876,6 +898,70 @@ const PatientDashboard = () => {
                         )}
                         <div style={{ borderTop: '1px solid var(--slate-100)', paddingTop: '6px', fontSize: '0.75rem', color: 'var(--slate-500)' }}>
                           Prescribed by Dr. {pres.doctor?.fullName || 'Physician'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Medical Reports & Diagnostic Scans Section (Phase 5) */}
+              {(historyTab === 'ALL' || historyTab === 'REPORTS') && filteredReports.length > 0 && (
+                <div style={{ marginTop: historyTab === 'ALL' ? '12px' : 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileUp size={15} className="text-primary" /> Verified Medical Reports & Diagnostic Scans ({filteredReports.length})
+                    </div>
+                    <Link to="/patient/records" style={{ fontSize: '0.75rem', color: 'var(--primary-600)', fontWeight: 600 }}>
+                      + Upload New Report
+                    </Link>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                    {filteredReports.map((rep) => (
+                      <div
+                        key={`rep-${rep.id}`}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--primary-100)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '14px',
+                          boxShadow: 'var(--shadow-sm)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--slate-900)', fontSize: '0.9375rem', lineHeight: 1.3 }}>
+                              {rep.title}
+                            </div>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, background: 'var(--primary-50)', color: 'var(--primary-700)', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                              {rep.reportType?.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                            <Calendar size={13} /> {rep.reportDate} • <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{rep.fileFormat}</span> ({rep.formattedFileSize})
+                          </div>
+                          {rep.clinicalNotes && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', background: 'var(--slate-50)', padding: '6px 8px', borderRadius: '4px', marginBottom: '8px' }}>
+                              {rep.clinicalNotes}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--slate-100)', paddingTop: '8px', marginTop: '6px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--slate-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }} title={rep.originalFilename}>
+                            {rep.originalFilename}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                            onClick={() => reportService.downloadReportBlob(rep.id, rep.originalFilename)}
+                            title="Download Report"
+                          >
+                            <Download size={12} /> Download
+                          </button>
                         </div>
                       </div>
                     ))}

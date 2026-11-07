@@ -73,3 +73,8 @@ logs/
 # Temporary Test / Verification Scratch Scripts
 **/verify_*.cjs
 **/debug_*.cjs
+
+# Uploaded Medical Report Files
+uploads/
+**/uploads/*
+!**/uploads/.gitkeep

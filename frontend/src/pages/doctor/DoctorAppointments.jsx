@@ -13,8 +13,11 @@ import {
   History,
   Stethoscope,
   Activity,
+  FileUp,
+  Download,
+  Eye,
 } from 'lucide-react';
-import { appointmentService, recordService, prescriptionService } from '../../services/api';
+import { appointmentService, recordService, prescriptionService, reportService } from '../../services/api';
 import Modal from '../../components/Modal';
 
 const DoctorAppointments = () => {
@@ -29,11 +32,12 @@ const DoctorAppointments = () => {
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Phase 4: Clinical History Modal for Pre-Consultation Review
+  // Phase 4 & 5: Clinical History Modal for Pre-Consultation Review
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyPatient, setHistoryPatient] = useState(null);
   const [patientRecords, setPatientRecords] = useState([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState([]);
+  const [patientReports, setPatientReports] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Phase 4: Clinical Documentation Fields for Consultation Completion
@@ -68,16 +72,36 @@ const DoctorAppointments = () => {
     setHistoryLoading(true);
     setHistoryModalOpen(true);
     try {
-      const [recRes, presRes] = await Promise.all([
+      const [recRes, presRes, repRes] = await Promise.all([
         recordService.getRecordsByPatientId(patient.id).catch(() => ({ data: [] })),
         prescriptionService.getPrescriptionsByPatientId(patient.id).catch(() => ({ data: [] })),
+        reportService.getReportsByPatientId(patient.id).catch(() => ({ data: [] })),
       ]);
       setPatientRecords(recRes.data || []);
       setPatientPrescriptions(presRes.data || []);
+      setPatientReports(repRes.data || []);
     } catch (err) {
       console.error('Failed to load patient history:', err);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const handleDownloadReport = async (report) => {
+    try {
+      await reportService.downloadReportBlob(report.id, report.originalFilename);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to download report document');
+    }
+  };
+
+  const handleViewReport = async (report) => {
+    try {
+      const blob = await reportService.viewReportBlob(report.id);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to open preview for this report');
     }
   };
 
@@ -582,6 +606,61 @@ const DoctorAppointments = () => {
                       )}
                       <div style={{ fontSize: '0.7rem', color: 'var(--slate-400)', marginTop: '4px' }}>
                         Issued: {pres.issuedDate} by Dr. {pres.doctor?.fullName || 'Physician'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Phase 5: Diagnostic Reports & Scans */}
+            <div style={{ marginTop: '22px' }}>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--slate-900)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <FileUp size={16} className="text-primary" /> Diagnostic Reports & Patient Uploads ({patientReports.length})
+              </h4>
+              {patientReports.length === 0 ? (
+                <div style={{ fontSize: '0.8125rem', color: 'var(--slate-500)', background: 'var(--slate-50)', padding: '12px', borderRadius: '6px' }}>
+                  No uploaded diagnostic reports or scan files available for this patient.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
+                  {patientReports.map((rep) => (
+                    <div key={rep.id} style={{ background: '#f8fafc', border: '1px solid var(--slate-200)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--slate-900)' }}>{rep.title}</span>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, background: 'var(--primary-50)', color: 'var(--primary-700)', padding: '1px 6px', borderRadius: '4px' }}>
+                            {rep.reportType?.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginBottom: '4px' }}>
+                          {rep.reportDate} • <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{rep.fileFormat}</span> ({rep.formattedFileSize})
+                        </div>
+                        {rep.clinicalNotes && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', background: 'white', padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--slate-100)', marginBottom: '6px' }}>
+                            {rep.clinicalNotes}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: '1px solid var(--slate-200)', paddingTop: '6px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                          onClick={() => handleViewReport(rep)}
+                          title="Preview Document"
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                          onClick={() => handleDownloadReport(rep)}
+                          title="Download Document"
+                        >
+                          <Download size={12} /> Download
+                        </button>
                       </div>
                     </div>
                   ))}

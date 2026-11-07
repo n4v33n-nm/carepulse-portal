@@ -196,5 +196,17 @@ export const healthService = {
   checkHealth: () => api.get('/health'),
 };
 
+export const reportService = {
+  uploadReport: (formData) => api.post('/reports/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  getMyReports: () => api.get('/reports/my'),
+  getReportsByPatientId: (patientId) => api.get(`/reports/patient/${patientId}`),
+  getReportById: (id) => api.get(`/reports/${id}`),
+  deleteReport: (id) => api.delete(`/reports/${id}`),
+  downloadReportBlob: (id) => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  viewReportBlob: (id) => api.get(`/reports/${id}/view`, { responseType: 'blob' }),
+};
+
 export default api;
 
