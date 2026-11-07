@@ -174,6 +174,15 @@ export const emergencyService = {
   getEmergencyAnalytics: (params) => api.get('/admin/emergency-analytics', { params }),
 };
 
+export const doctorConnectService = {
+  createConversation: (data) => api.post('/doctor-connect/conversations', data),
+  getConversations: (params) => api.get('/doctor-connect/conversations', { params }),
+  getConversationById: (id) => api.get(`/doctor-connect/conversations/${id}`),
+  sendMessage: (id, data) => api.post(`/doctor-connect/conversations/${id}/messages`, data),
+  updateStatus: (id, data) => api.patch(`/doctor-connect/conversations/${id}/status`, data),
+  getStats: () => api.get('/doctor-connect/stats'),
+};
+
 export const healthService = {
   checkHealth: () => api.get('/health'),
 };

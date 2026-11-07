@@ -241,3 +241,35 @@ CREATE TABLE IF NOT EXISTS appointment_waitlist (
 CREATE INDEX IF NOT EXISTS idx_waitlist_patient ON appointment_waitlist(patient_id);
 CREATE INDEX IF NOT EXISTS idx_waitlist_doctor_date ON appointment_waitlist(doctor_id, preferred_date);
 CREATE INDEX IF NOT EXISTS idx_waitlist_status ON appointment_waitlist(status);
+
+-- 14. DoctorConnect Conversations (Patient-Physician Asynchronous Consultation Inquiries)
+CREATE TABLE IF NOT EXISTS conversations (
+    id BIGSERIAL PRIMARY KEY,
+    patient_id BIGINT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    doctor_id BIGINT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    appointment_id BIGINT REFERENCES appointments(id) ON DELETE SET NULL,
+    subject VARCHAR(200) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'ANSWERED', 'RESOLVED')),
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_conv_patient ON conversations(patient_id);
+CREATE INDEX IF NOT EXISTS idx_conv_doctor ON conversations(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_conv_status ON conversations(status);
+CREATE INDEX IF NOT EXISTS idx_conv_updated_at ON conversations(updated_at DESC);
+
+-- 15. DoctorConnect Conversation Messages (Threaded Messaging & Clinical Responses)
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id BIGSERIAL PRIMARY KEY,
+    conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_role VARCHAR(30) NOT NULL CHECK (sender_role IN ('PATIENT', 'DOCTOR', 'ADMIN')),
+    sender_name VARCHAR(120) NOT NULL,
+    content TEXT NOT NULL,
+    sent_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_msg_conv ON conversation_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_msg_sent_at ON conversation_messages(sent_at ASC);

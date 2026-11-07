@@ -16,8 +16,9 @@ import {
   TrendingUp,
   Clock,
   HeartPulse,
+  MessageSquare,
 } from 'lucide-react';
-import { adminService } from '../../services/api';
+import { adminService, doctorConnectService } from '../../services/api';
 import AdminEmergencyRoster from './AdminEmergencyRoster';
 
 const AdminDashboard = () => {
@@ -28,7 +29,10 @@ const AdminDashboard = () => {
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [actionLoading, setActionLoading] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'emergency-roster' | 'analytics'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'emergency-roster' | 'analytics' | 'communication'
+  const [commStats, setCommStats] = useState({ total: 0, open: 0, answered: 0, resolved: 0 });
+  const [conversationsList, setConversationsList] = useState([]);
+  const [commFilter, setCommFilter] = useState('ALL');
 
   useEffect(() => {
     fetchAdminData();
@@ -37,14 +41,25 @@ const AdminDashboard = () => {
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [statsRes, usersRes, analyticsRes] = await Promise.all([
+      const [statsRes, usersRes, analyticsRes, commStatsRes, convsRes] = await Promise.all([
         adminService.getDashboardStats(),
         adminService.getAllUsers(),
         adminService.getAnalytics().catch(() => ({ data: null })),
+        doctorConnectService.getStats().catch(() => ({ data: null })),
+        doctorConnectService.getConversations().catch(() => ({ data: [] })),
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data || []);
       setAnalytics(analyticsRes.data);
+      if (commStatsRes.data) {
+        setCommStats({
+          total: commStatsRes.data.totalConversations || 0,
+          open: commStatsRes.data.openConversations || 0,
+          answered: commStatsRes.data.answeredConversations || 0,
+          resolved: commStatsRes.data.resolvedConversations || 0,
+        });
+      }
+      setConversationsList(convsRes.data || []);
     } catch (err) {
       console.error('Failed to load admin stats:', err);
     } finally {
@@ -108,6 +123,14 @@ const AdminDashboard = () => {
           style={{ borderRadius: '6px 6px 0 0', borderBottom: 'none', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <BarChart3 size={16} /> Healthcare Coordination Analytics
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'communication' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('communication')}
+          style={{ borderRadius: '6px 6px 0 0', borderBottom: 'none', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <MessageSquare size={16} /> DoctorConnect Activity ({commStats.open} Open)
         </button>
       </div>
 
@@ -339,6 +362,133 @@ const AdminDashboard = () => {
                   No recent emergency volume data recorded.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'communication' ? (
+        <div>
+          {/* Section: Communication Supervision */}
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={20} style={{ color: 'var(--primary-600)' }} /> DoctorConnect Communication Oversight
+            </h3>
+            <p style={{ color: 'var(--slate-600)', fontSize: '0.9375rem' }}>
+              Monitor clinical queries submitted by patients to their assigned physicians. Identify unanswered inquiries and ensure timely medical responses.
+            </p>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="stats-grid" style={{ marginBottom: '24px' }}>
+            <div className="stat-card">
+              <div className="stat-icon-wrapper stat-icon-primary"><MessageSquare size={24} /></div>
+              <div>
+                <div className="stat-val">{commStats.total}</div>
+                <div className="stat-label">Total Inquiries</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon-wrapper stat-icon-amber"><Clock size={24} /></div>
+              <div>
+                <div className="stat-val">{commStats.open}</div>
+                <div className="stat-label">Awaiting Doctor Response</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon-wrapper stat-icon-teal"><CheckCircle2 size={24} /></div>
+              <div>
+                <div className="stat-val">{commStats.answered}</div>
+                <div className="stat-label">Physician Answered</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon-wrapper stat-icon-indigo"><Shield size={24} /></div>
+              <div>
+                <div className="stat-val">{commStats.resolved}</div>
+                <div className="stat-label">Inquiries Resolved</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Inquiries Table Card */}
+          <div className="card">
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+              <span className="card-title">
+                <MessageSquare size={18} className="text-primary" /> Active & Historical Inquiries
+              </span>
+
+              {/* Status Filter Buttons */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['ALL', 'OPEN', 'ANSWERED', 'RESOLVED'].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`btn btn-sm ${commFilter === f ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setCommFilter(f)}
+                    style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                  >
+                    {f === 'ALL' ? 'All' : f === 'OPEN' ? `Unanswered (${commStats.open})` : f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Inquiry ID</th>
+                    <th>Patient</th>
+                    <th>Assigned Doctor</th>
+                    <th>Subject & Snippet</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conversationsList
+                    .filter((c) => commFilter === 'ALL' || c.status === commFilter)
+                    .map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: 700, color: 'var(--slate-500)' }}>#{c.id}</td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{c.patientName}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)' }}>{c.patientEmail}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{c.doctorName}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--primary-600)' }}>{c.doctorSpecialization}</div>
+                        </td>
+                        <td style={{ maxWidth: '280px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--slate-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.subject}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.lastMessageSnippet || 'No message content'}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${c.status === 'ANSWERED' ? 'badge-confirmed' : c.status === 'OPEN' ? 'badge-warning' : 'badge-off-duty'}`}>
+                            {c.status === 'OPEN' ? 'Needs Response' : c.status}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td style={{ fontSize: '0.8125rem', color: 'var(--slate-600)' }}>
+                          {c.updatedAt ? new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  {conversationsList.filter((c) => commFilter === 'ALL' || c.status === commFilter).length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--slate-500)' }}>
+                        No consultation inquiries found in this category.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

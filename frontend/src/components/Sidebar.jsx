@@ -15,6 +15,7 @@ import {
   LogOut,
   Stethoscope,
   Siren,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -67,6 +68,10 @@ const Sidebar = () => {
               <Pill size={18} />
               <span>Prescriptions</span>
             </NavLink>
+            <NavLink to="/patient/doctor-connect" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <MessageSquare size={18} />
+              <span>DoctorConnect</span>
+            </NavLink>
             <NavLink to="/patient/ai-companion" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Bot size={18} />
               <span>AI Companion</span>
@@ -100,6 +105,10 @@ const Sidebar = () => {
             <NavLink to="/doctor/records" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <FileText size={18} />
               <span>Consultation Records</span>
+            </NavLink>
+            <NavLink to="/doctor/inquiries" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <MessageSquare size={18} />
+              <span>Patient Inquiries</span>
             </NavLink>
           </>
         )}

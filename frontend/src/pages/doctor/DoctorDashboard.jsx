@@ -17,8 +17,9 @@ import {
   HeartPulse,
   Stethoscope,
   Phone,
+  MessageSquare,
 } from 'lucide-react';
-import { appointmentService, doctorService, emergencyService } from '../../services/api';
+import { appointmentService, doctorService, emergencyService, doctorConnectService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const DoctorDashboard = () => {
@@ -28,6 +29,7 @@ const DoctorDashboard = () => {
   const [emergencyDuties, setEmergencyDuties] = useState([]);
   const [assignedEmergencies, setAssignedEmergencies] = useState([]);
   const [workloadData, setWorkloadData] = useState(null);
+  const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('AVAILABLE');
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(null);
@@ -43,14 +45,16 @@ const DoctorDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [apptRes, dutySummaryRes, dutyRes, emergRes, workloadsRes] = await Promise.all([
+      const [apptRes, dutySummaryRes, dutyRes, emergRes, workloadsRes, inqRes] = await Promise.all([
         appointmentService.getMyAppointments(),
         emergencyService.getDoctorTodayDutySummary().catch(() => ({ data: null })),
         emergencyService.getMyEmergencyDuty().catch(() => ({ data: [] })),
         emergencyService.getAssignedEmergencyRequests().catch(() => ({ data: [] })),
         doctorService.getAllWorkloads().catch(() => ({ data: [] })),
+        doctorConnectService.getConversations({ status: 'OPEN' }).catch(() => ({ data: [] })),
       ]);
       setAppointments(apptRes.data || []);
+      setOpenInquiriesCount((inqRes.data || []).length);
       const duty = dutySummaryRes.data;
       setTodayDuty(duty);
       if (duty && duty.status) {
@@ -149,6 +153,41 @@ const DoctorDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Open Inquiries Alert Banner */}
+      {openInquiriesCount > 0 && (
+        <div
+          style={{
+            marginBottom: '28px',
+            padding: '16px 20px',
+            borderRadius: 'var(--radius-lg)',
+            background: '#eff6ff',
+            border: '1.5px solid #bfdbfe',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ background: '#2563eb', color: 'white', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageSquare size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1rem', color: '#1e3a8a' }}>
+                Action Required: {openInquiriesCount} Patient Consultation {openInquiriesCount === 1 ? 'Inquiry' : 'Inquiries'} Awaiting Response
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2563eb' }}>
+                Patients have submitted follow-up questions in DoctorConnect. Click to review clinical context and reply.
+              </div>
+            </div>
+          </div>
+          <Link to="/doctor/inquiries" className="btn btn-primary btn-sm">
+            View & Respond
+          </Link>
+        </div>
+      )}
 
       {/* SECTION: TODAY'S WORKLOAD & CAPACITY (Phase 5 Requirement 10) */}
       <div className="card" style={{ marginBottom: '28px', borderLeft: '5px solid var(--primary-600)' }}>

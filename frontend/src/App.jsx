@@ -17,6 +17,7 @@ import PatientRecords from './pages/patient/PatientRecords';
 import PatientPrescriptions from './pages/patient/PatientPrescriptions';
 import AiCompanionPage from './pages/patient/AiCompanionPage';
 import CaregiverPage from './pages/patient/CaregiverPage';
+import DoctorConnectPage from './pages/patient/DoctorConnectPage';
 
 // Doctor pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -24,6 +25,7 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import DoctorAvailabilityPage from './pages/doctor/DoctorAvailabilityPage';
 import DoctorPatients from './pages/doctor/DoctorPatients';
 import DoctorRecords from './pages/doctor/DoctorRecords';
+import DoctorPatientQueries from './pages/doctor/DoctorPatientQueries';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -128,6 +130,7 @@ const App = () => {
         <Route path="appointments" element={<PatientAppointments />} />
         <Route path="records" element={<PatientRecords />} />
         <Route path="prescriptions" element={<PatientPrescriptions />} />
+        <Route path="doctor-connect" element={<DoctorConnectPage />} />
         <Route path="ai-companion" element={<AiCompanionPage />} />
         <Route path="caregivers" element={<CaregiverPage />} />
       </Route>
@@ -147,6 +150,7 @@ const App = () => {
         <Route path="availability" element={<DoctorAvailabilityPage />} />
         <Route path="patients" element={<DoctorPatients />} />
         <Route path="records" element={<DoctorRecords />} />
+        <Route path="inquiries" element={<DoctorPatientQueries />} />
       </Route>
 
       {/* Protected Admin Routes */}

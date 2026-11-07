@@ -16,6 +16,7 @@ import {
   HeartPulse,
   Siren,
   Phone,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { appointmentService, recordService, prescriptionService, notificationService, emergencyService } from '../../services/api';
@@ -513,6 +514,32 @@ const PatientDashboard = () => {
                 </div>
               </div>
               <ArrowRight size={16} style={{ color: 'var(--primary-600)' }} />
+            </Link>
+
+            <Link
+              to="/patient/doctor-connect"
+              className="card"
+              style={{
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#fffbeb',
+                borderColor: '#fde68a',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <MessageSquare size={20} style={{ color: '#d97706' }} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--slate-900)' }}>
+                    DoctorConnect Inquiries
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)' }}>
+                    Ask questions & receive doctor guidance
+                  </div>
+                </div>
+              </div>
+              <ArrowRight size={16} style={{ color: '#d97706' }} />
             </Link>
 
             <Link
