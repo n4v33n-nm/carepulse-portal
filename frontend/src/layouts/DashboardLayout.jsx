@@ -18,6 +18,8 @@ const DashboardLayout = () => {
     if (path.includes('prescriptions')) return 'Digital Prescriptions';
     if (path.includes('doctor-connect')) return 'DoctorConnect Consultation Inquiries';
     if (path.includes('inquiries')) return 'Patient Consultation Inquiries';
+    if (path.includes('doctor-leaves')) return 'Doctor Leave & Reassignment Governance';
+    if (path.includes('leaves')) return 'Doctor Leave & Coverage';
     if (path.includes('caregivers')) return 'Caregiver Access & Proxies';
     if (path.includes('availability')) return 'Consultation Schedule';
     if (path.includes('patients')) return 'Assigned Patients';

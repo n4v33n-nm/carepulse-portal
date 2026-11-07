@@ -15,6 +15,7 @@ import {
   Stethoscope,
   Siren,
   MessageSquare,
+  CalendarRange,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -105,6 +106,10 @@ const Sidebar = () => {
               <MessageSquare size={18} />
               <span>Patient Inquiries</span>
             </NavLink>
+            <NavLink to="/doctor/leaves" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <CalendarRange size={18} />
+              <span>Leave & Coverage</span>
+            </NavLink>
           </>
         )}
 
@@ -118,6 +123,10 @@ const Sidebar = () => {
             <NavLink to="/admin/emergency-roster" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Siren size={18} />
               <span>Emergency Roster</span>
+            </NavLink>
+            <NavLink to="/admin/doctor-leaves" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <CalendarRange size={18} />
+              <span>Doctor Leaves & Coverage</span>
             </NavLink>
             <NavLink to="/admin/audit-logs" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Shield size={18} />

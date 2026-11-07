@@ -16,9 +16,10 @@ import {
   Siren,
   Phone,
   MessageSquare,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { appointmentService, recordService, prescriptionService, notificationService, emergencyService } from '../../services/api';
+import { appointmentService, recordService, prescriptionService, notificationService, emergencyService, doctorLeaveService } from '../../services/api';
 import EmergencyAssistanceModal from '../../components/EmergencyAssistanceModal';
 
 const PatientDashboard = () => {
@@ -27,24 +28,27 @@ const PatientDashboard = () => {
   const [records, setRecords] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [emergencyRequests, setEmergencyRequests] = useState([]);
+  const [pendingReassignments, setPendingReassignments] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
-      const [appRes, recRes, presRes, notifRes, emergRes] = await Promise.all([
+      const [appRes, recRes, presRes, notifRes, emergRes, reassignRes] = await Promise.all([
         appointmentService.getMyAppointments(),
         recordService.getMyRecords(),
         prescriptionService.getMyPrescriptions(),
         notificationService.getUnreadCount(),
         emergencyService.getMyEmergencyRequests().catch(() => ({ data: [] })),
+        doctorLeaveService.getPatientPendingReassignments().catch(() => ({ data: [] })),
       ]);
       setAppointments(appRes.data || []);
       setRecords(recRes.data || []);
       setPrescriptions(presRes.data || []);
       setUnreadCount(notifRes.data?.unreadCount || 0);
       setEmergencyRequests(emergRes.data || []);
+      setPendingReassignments(reassignRes.data || []);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -106,6 +110,41 @@ const PatientDashboard = () => {
           </p>
         </div>
       </div>
+
+      {/* Urgent Doctor Reassignment Consent Notice (Phase 3) */}
+      {pendingReassignments.length > 0 && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '24px',
+            padding: '18px 24px',
+            background: '#fffbeb',
+            border: '2px solid #f59e0b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+              <UserCheck size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1rem', color: '#92400e' }}>
+                Physician Absence Notice: {pendingReassignments.length} Consultation Reassignment Awaiting Your Consent
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#b45309' }}>
+                Your consulting doctor is on approved leave. Qualified replacement specialists have been proposed for your review.
+              </div>
+            </div>
+          </div>
+          <Link to="/patient/appointments" className="btn btn-primary" style={{ background: '#d97706', borderColor: '#b45309' }}>
+            Review Reassignment Details →
+          </Link>
+        </div>
+      )}
 
       {/* Emergency Assistance Direct Dispatch Card */}
       <div className="emergency-hero-card" style={{ marginBottom: '24px' }}>

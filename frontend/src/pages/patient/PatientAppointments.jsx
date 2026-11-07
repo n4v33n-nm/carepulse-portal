@@ -8,9 +8,9 @@ import {
   XCircle,
   FileText,
   AlertCircle,
-  Bot,
+  UserCheck,
 } from 'lucide-react';
-import { appointmentService } from '../../services/api';
+import { appointmentService, doctorLeaveService } from '../../services/api';
 import Modal from '../../components/Modal';
 
 const PatientAppointments = () => {
@@ -37,10 +37,36 @@ const PatientAppointments = () => {
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
   const [rescheduleError, setRescheduleError] = useState('');
 
+  const [pendingReassignments, setPendingReassignments] = useState([]);
+  const [reassignActionLoading, setReassignActionLoading] = useState(false);
+
   useEffect(() => {
     fetchAppointments();
     fetchWaitlist();
+    fetchPendingReassignments();
   }, []);
+
+  const fetchPendingReassignments = async () => {
+    try {
+      const res = await doctorLeaveService.getPatientPendingReassignments();
+      setPendingReassignments(res.data || []);
+    } catch (err) {
+      console.error('Failed to load pending reassignments:', err);
+    }
+  };
+
+  const handleConsent = async (reassignmentId, action, notes = '') => {
+    try {
+      setReassignActionLoading(true);
+      await doctorLeaveService.respondToReassignment(reassignmentId, { action, patientNotes: notes });
+      await fetchAppointments();
+      await fetchPendingReassignments();
+    } catch (err) {
+      console.error('Consent action failed:', err);
+    } finally {
+      setReassignActionLoading(false);
+    }
+  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -185,6 +211,70 @@ const PatientAppointments = () => {
           <Calendar size={16} /> Book New Appointment
         </Link>
       </div>
+
+      {/* Reassignment Action Required Banner (Phase 3 Doctor Leave & Replacement) */}
+      {pendingReassignments.length > 0 && (
+        <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {pendingReassignments.map((pr) => (
+            <div
+              key={pr.id}
+              className="card"
+              style={{
+                padding: '20px',
+                border: '2px solid #f59e0b',
+                background: '#fffbeb',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                    <UserCheck size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#92400e' }}>
+                      Physician Absence & Proposed Reassignment
+                    </div>
+                    <div style={{ fontSize: '0.8125rem', color: '#b45309' }}>
+                      Dr. {pr.originalDoctorName} is on approved leave for your consultation on <strong>{pr.appointmentDate} at {pr.appointmentTime}</strong>.
+                    </div>
+                  </div>
+                </div>
+                <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>Action Required</span>
+              </div>
+
+              <div style={{ marginTop: '14px', padding: '14px', background: 'white', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: '0.875rem', color: 'var(--slate-800)', marginBottom: '6px' }}>
+                  <strong>Proposed Replacement Physician:</strong> Dr. {pr.replacementDoctorName} ({pr.replacementDoctorSpecialization})
+                </div>
+                {pr.adminNotes && (
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--slate-600)', fontStyle: 'italic', marginBottom: '12px' }}>
+                    Admin Clinical Note: "{pr.adminNotes}"
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={reassignActionLoading}
+                    onClick={() => handleConsent(pr.id, 'ACCEPT')}
+                  >
+                    ✓ Accept Dr. {pr.replacementDoctorName}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={reassignActionLoading}
+                    onClick={() => handleConsent(pr.id, 'REJECT', 'Prefer to reschedule or cancel')}
+                  >
+                    Decline Replacement
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div

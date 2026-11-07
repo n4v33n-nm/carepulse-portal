@@ -42,4 +42,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     long countByAppointmentDate(LocalDate date);
     long countByAppointmentDateAndStatus(LocalDate date, String status);
     boolean existsByDoctorIdAndPatientId(Long doctorId, Long patientId);
+
+    @Query("SELECT a FROM Appointment a WHERE a.doctor.id = :doctorId AND a.appointmentDate BETWEEN :startDate AND :endDate AND a.status IN :statuses ORDER BY a.appointmentDate ASC, a.appointmentTime ASC")
+    List<Appointment> findAppointmentsForDoctorInDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("statuses") List<String> statuses);
 }

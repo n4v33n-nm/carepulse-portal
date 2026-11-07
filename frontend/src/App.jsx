@@ -25,11 +25,13 @@ import DoctorAvailabilityPage from './pages/doctor/DoctorAvailabilityPage';
 import DoctorPatients from './pages/doctor/DoctorPatients';
 import DoctorRecords from './pages/doctor/DoctorRecords';
 import DoctorPatientQueries from './pages/doctor/DoctorPatientQueries';
+import DoctorLeavePage from './pages/doctor/DoctorLeavePage';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminEmergencyRoster from './pages/admin/AdminEmergencyRoster';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
+import AdminDoctorLeave from './pages/admin/AdminDoctorLeave';
 
 // Helper to redirect authenticated users based on their role
 const getHomeRouteForRole = (role) => {
@@ -151,6 +153,7 @@ const App = () => {
         <Route path="patients" element={<DoctorPatients />} />
         <Route path="records" element={<DoctorRecords />} />
         <Route path="inquiries" element={<DoctorPatientQueries />} />
+        <Route path="leaves" element={<DoctorLeavePage />} />
       </Route>
 
       {/* Protected Admin Routes */}
@@ -165,6 +168,7 @@ const App = () => {
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="emergency-roster" element={<AdminEmergencyRoster />} />
+        <Route path="doctor-leaves" element={<AdminDoctorLeave />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
       </Route>
 

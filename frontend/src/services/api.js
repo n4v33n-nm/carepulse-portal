@@ -178,6 +178,20 @@ export const doctorConnectService = {
   getStats: () => api.get('/doctor-connect/stats'),
 };
 
+export const doctorLeaveService = {
+  submitLeave: (data) => api.post('/doctor-leave/requests', data),
+  getMyLeaves: () => api.get('/doctor-leave/my'),
+  getAllLeaves: (status) => api.get('/doctor-leave', { params: status ? { status } : {} }),
+  getLeaveById: (id) => api.get(`/doctor-leave/${id}`),
+  reviewLeave: (id, data) => api.put(`/doctor-leave/${id}/review`, data),
+  getAffectedAppointments: (id) => api.get(`/doctor-leave/${id}/affected-appointments`),
+  getReplacementCandidates: (appointmentId) => api.get(`/doctor-leave/appointments/${appointmentId}/candidates`),
+  reassignAppointment: (appointmentId, data) => api.post(`/doctor-leave/appointments/${appointmentId}/reassign`, data),
+  getPatientPendingReassignments: () => api.get('/doctor-leave/reassignments/my-pending'),
+  respondToReassignment: (id, data) => api.post(`/doctor-leave/reassignments/${id}/consent`, data),
+  getDoctorReassignedHistory: () => api.get('/doctor-leave/reassignments/doctor-history'),
+};
+
 export const healthService = {
   checkHealth: () => api.get('/health'),
 };
