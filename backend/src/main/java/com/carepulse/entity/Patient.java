@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "patients")
+@Table(name = "patients", indexes = {
+        @Index(name = "idx_patients_user_id", columnList = "user_id")
+})
 public class Patient {
 
     @Id
@@ -19,7 +21,7 @@ public class Patient {
     @Column(name = "full_name", nullable = false, length = 120)
     private String fullName;
 
-    @Column(length = 20)
+    @Column(length = 30)
     private String phone;
 
     @Column(name = "date_of_birth")
@@ -34,7 +36,7 @@ public class Patient {
     @Column(name = "blood_group", length = 10)
     private String bloodGroup;
 
-    @Column(name = "emergency_contact", length = 50)
+    @Column(name = "emergency_contact", length = 100)
     private String emergencyContact;
 
     @Column(name = "created_at", nullable = false, updatable = false)

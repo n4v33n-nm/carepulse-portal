@@ -129,9 +129,10 @@ class EmergencySecurityAndControllerIntegrationTest {
     @WithMockUser(username = "admin@carepulse.com", roles = {"ADMIN"})
     @DisplayName("Admin can generate emergency roster for future date")
     void testAdminCanGenerateEmergencyRoster() throws Exception {
+        String futureDate = java.time.LocalDate.now().plusDays(10).toString();
         mockMvc.perform(post("/api/admin/emergency-roster/generate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"rosterDate\":\"2026-10-15\",\"doctorsPerShift\":1}"))
+                        .content("{\"rosterDate\":\"" + futureDate + "\",\"doctorsPerShift\":1}"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
     }

@@ -43,6 +43,11 @@ public interface EmergencyDoctorRosterRepository extends JpaRepository<Emergency
            "AND UPPER(r.doctorAvailabilityStatus) = 'AVAILABLE'")
     List<EmergencyDoctorRoster> findAvailableEmergencyRosters(@Param("today") LocalDate today, @Param("yesterday") LocalDate yesterday);
 
+    @Query("SELECT r FROM EmergencyDoctorRoster r JOIN FETCH r.doctor d " +
+           "WHERE (r.rosterDate = :today OR (r.rosterDate = :yesterday AND r.shiftStart > r.shiftEnd)) " +
+           "AND UPPER(r.dutyStatus) = 'EMERGENCY_DUTY'")
+    List<EmergencyDoctorRoster> findActiveEmergencyDutyRosters(@Param("today") LocalDate today, @Param("yesterday") LocalDate yesterday);
+
     @Query("SELECT r FROM EmergencyDoctorRoster r WHERE r.doctor.id = :doctorId " +
            "AND (r.rosterDate = :today OR (r.rosterDate = :yesterday AND r.shiftStart > r.shiftEnd)) " +
            "AND UPPER(r.dutyStatus) = 'EMERGENCY_DUTY' ORDER BY r.shiftStart ASC")

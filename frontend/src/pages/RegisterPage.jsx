@@ -44,7 +44,11 @@ const RegisterPage = () => {
     setError('');
     setLoading(true);
     try {
-      await registerPatient(patientData);
+      const payload = {
+        ...patientData,
+        dateOfBirth: patientData.dateOfBirth ? patientData.dateOfBirth : null,
+      };
+      await registerPatient(payload);
       navigate('/patient/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please check your details.');

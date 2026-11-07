@@ -63,6 +63,13 @@ class EmergencyEndToEndWorkflowTest {
             rosterRepository.deleteAll(existingTomorrow);
         }
 
+        // Clean up any lingering waiting requests from prior interrupted tests so queue state is clean
+        List<EmergencyRequest> lingeringWaiting = requestRepository.findByStatus("WAITING");
+        for (EmergencyRequest lr : lingeringWaiting) {
+            lr.setStatus("CANCELLED");
+            requestRepository.save(lr);
+        }
+
         // STEP 2: Open Emergency Duty Roster
         MvcResult rosterResult = mockMvc.perform(get("/api/admin/emergency-roster")
                         .param("date", tomorrow.toString())

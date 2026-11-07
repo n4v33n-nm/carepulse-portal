@@ -108,7 +108,7 @@ public class AppointmentController {
         return ResponseEntity.ok(waitlistService.joinWaitlist(authentication.getName(), request));
     }
 
-    @GetMapping("/waitlist")
+    @GetMapping({"/waitlist", "/waitlist/my"})
     public ResponseEntity<List<com.carepulse.dto.AppointmentWaitlistResponseDTO>> getWaitlist(Authentication authentication) {
         User user = userService.getUserByEmail(authentication.getName());
         if ("ADMIN".equalsIgnoreCase(user.getRole())) {

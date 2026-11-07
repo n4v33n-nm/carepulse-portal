@@ -417,6 +417,32 @@ docker-compose down
 
 ---
 
+### Railway & Railpack Monorepo Deployment
+CarePulse is configured as an enterprise monorepo with multiple deployment topologies:
+
+#### Option 1: Unified Fullstack Container (Default 0-Config)
+The root [`Dockerfile`](Dockerfile), [`railway.json`](railway.json), and [`railway.toml`](railway.toml) automatically build both the React frontend and Spring Boot backend into a single cohesive, high-performance container running on port `8080`.
+* Connect your repository to Railway.
+* Railpack will automatically recognize the root `Dockerfile` and build the entire fullstack portal without requiring separate service configuration.
+
+#### Option 2: Split Multi-Service Deployment (Backend & Frontend)
+If deploying backend and frontend as independent Railway services:
+* **Backend Service:**
+  1. In Railway Dashboard, select your Backend Service $\rightarrow$ **Settings** $\rightarrow$ **General**.
+  2. Set **Root Directory** to: `/backend`
+  3. Railway will build using [`backend/Dockerfile`](backend/Dockerfile) (Java 17 / Maven).
+* **Frontend Service:**
+  1. In Railway Dashboard, select your Frontend Service $\rightarrow$ **Settings** $\rightarrow$ **General**.
+  2. Set **Root Directory** to: `/frontend`
+  3. Railway will build using [`frontend/Dockerfile`](frontend/Dockerfile) (Node 20 / Nginx).
+* Alternatively, via Railway CLI:
+  ```bash
+  railway environment edit --service-config <BACKEND_SERVICE_NAME> source.rootDirectory /backend
+  railway environment edit --service-config <FRONTEND_SERVICE_NAME> source.rootDirectory /frontend
+  ```
+
+---
+
 ### Running Automated Tests
 Run the comprehensive Spring Boot test suite (80 unit, service, security, emergency allocation, and integration tests):
 ```bash

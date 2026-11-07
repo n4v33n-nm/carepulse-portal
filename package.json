@@ -1,0 +1,13 @@
+{
+  "name": "carepulse-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CarePulse Portal - Intelligent Healthcare Coordination Platform",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm run preview"
+  }
+}

@@ -138,6 +138,16 @@ class FinalSystemAuditIntegrationTest {
         }
         LocalTime initialTime = initialSlots.get(0);
 
+        Patient patient = patientRepository.findByUserEmail("john.doe@example.com").orElse(null);
+        if (patient != null) {
+            List<Appointment> existing = appointmentRepository.findByPatientOrderByAppointmentDateDescAppointmentTimeDesc(patient);
+            for (Appointment a : existing) {
+                if (a.getAppointmentDate().equals(initialDate)) {
+                    appointmentRepository.delete(a);
+                }
+            }
+        }
+
         AppointmentRequest bookReq = new AppointmentRequest();
         bookReq.setDoctorId(doctor.getId());
         bookReq.setAppointmentDate(initialDate);
@@ -155,19 +165,32 @@ class FinalSystemAuditIntegrationTest {
         }
         LocalTime newTime = newSlots.get(0);
 
+        if (patient != null) {
+            List<Appointment> existing = appointmentRepository.findByPatientOrderByAppointmentDateDescAppointmentTimeDesc(patient);
+            for (Appointment a : existing) {
+                if (a.getAppointmentDate().equals(newDate)) {
+                    appointmentRepository.delete(a);
+                }
+            }
+        }
+
         AppointmentRescheduleRequestDTO reschedReq = new AppointmentRescheduleRequestDTO();
         reschedReq.setNewDate(newDate);
         reschedReq.setNewTime(newTime);
         reschedReq.setReason("Conflict on previous date");
 
-        mockMvc.perform(put("/api/appointments/" + booked.getId() + "/reschedule")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reschedReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(booked.getId()))
-                .andExpect(jsonPath("$.appointmentDate").value(newDate.toString()))
-                .andExpect(jsonPath("$.appointmentTime").value(newTime.toString() + (newTime.toString().length() == 5 ? ":00" : "")))
-                .andExpect(jsonPath("$.reason").value("Conflict on previous date"));
+        try {
+            mockMvc.perform(put("/api/appointments/" + booked.getId() + "/reschedule")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(reschedReq)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(booked.getId()))
+                    .andExpect(jsonPath("$.appointmentDate").value(newDate.toString()))
+                    .andExpect(jsonPath("$.appointmentTime").value(newTime.toString() + (newTime.toString().length() == 5 ? ":00" : "")))
+                    .andExpect(jsonPath("$.reason").value("Conflict on previous date"));
+        } finally {
+            appointmentRepository.deleteById(booked.getId());
+        }
     }
 
     @Test
@@ -184,6 +207,16 @@ class FinalSystemAuditIntegrationTest {
         }
         LocalTime initialTime = initialSlots.get(0);
 
+        Patient patient = patientRepository.findByUserEmail("john.doe@example.com").orElse(null);
+        if (patient != null) {
+            List<Appointment> existing = appointmentRepository.findByPatientOrderByAppointmentDateDescAppointmentTimeDesc(patient);
+            for (Appointment a : existing) {
+                if (a.getAppointmentDate().equals(initialDate)) {
+                    appointmentRepository.delete(a);
+                }
+            }
+        }
+
         AppointmentRequest bookReq = new AppointmentRequest();
         bookReq.setDoctorId(doctor.getId());
         bookReq.setAppointmentDate(initialDate);
@@ -197,12 +230,16 @@ class FinalSystemAuditIntegrationTest {
         reschedReq.setNewTime(LocalTime.of(10, 0));
         reschedReq.setReason("Past date attempt");
 
-        mockMvc.perform(put("/api/appointments/" + booked.getId() + "/reschedule")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reschedReq)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value(containsString("past")));
+        try {
+            mockMvc.perform(put("/api/appointments/" + booked.getId() + "/reschedule")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(reschedReq)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.message").value(containsString("past")));
+        } finally {
+            appointmentRepository.deleteById(booked.getId());
+        }
     }
 
     @Test

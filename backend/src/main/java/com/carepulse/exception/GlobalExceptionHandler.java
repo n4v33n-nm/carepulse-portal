@@ -49,7 +49,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Database constraint/integrity violation: {}", ex.getMessage());
-        return buildResponse(HttpStatus.CONFLICT, "Operation failed due to a database constraint or duplicate resource conflict");
+        String msg = "Operation failed due to a database constraint or duplicate resource conflict";
+        String exMsg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+        if (exMsg.contains("uq_doctor_date_time_active") || exMsg.contains("appointments")) {
+            msg = "The selected consultation time slot is already booked with this doctor.";
+        } else if (exMsg.contains("uq_doctor_day")) {
+            msg = "An availability schedule already exists for this doctor on this day.";
+        } else if (exMsg.contains("uk6dotkott2kjsp8vw4d0m25fb7") || exMsg.contains("users_email")) {
+            msg = "A user account with this email address already exists.";
+        } else if (exMsg.contains("uq_emergency_roster")) {
+            msg = "An emergency duty roster entry already exists for this doctor, date, and shift.";
+        }
+        return buildResponse(HttpStatus.CONFLICT, msg);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.warn("Malformed HTTP request body or invalid format: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Malformed request format or invalid date/time value. Please verify your inputs.");
     }
 
     @ExceptionHandler(BadRequestException.class)

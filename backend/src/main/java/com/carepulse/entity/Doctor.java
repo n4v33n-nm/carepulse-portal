@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "doctors")
+@Table(name = "doctors", indexes = {
+        @Index(name = "idx_doctors_user_id", columnList = "user_id"),
+        @Index(name = "idx_doctors_specialization", columnList = "specialization")
+})
 public class Doctor {
 
     @Id
@@ -18,7 +21,7 @@ public class Doctor {
     @Column(name = "full_name", nullable = false, length = 120)
     private String fullName;
 
-    @Column(length = 20)
+    @Column(length = 30)
     private String phone;
 
     @Column(nullable = false, length = 100)

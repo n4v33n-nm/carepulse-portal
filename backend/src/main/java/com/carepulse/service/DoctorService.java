@@ -87,6 +87,7 @@ public class DoctorService {
     public List<DoctorAvailability> saveOrUpdateAvailability(Long doctorId, List<DoctorAvailabilityRequest> requests) {
         Doctor doctor = getDoctorById(doctorId);
         availabilityRepository.deleteByDoctor(doctor);
+        availabilityRepository.flush();
 
         List<DoctorAvailability> savedList = new ArrayList<>();
         for (DoctorAvailabilityRequest req : requests) {

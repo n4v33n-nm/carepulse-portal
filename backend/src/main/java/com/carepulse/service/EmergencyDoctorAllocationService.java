@@ -74,8 +74,11 @@ public class EmergencyDoctorAllocationService {
         LocalDate yesterday = currentDate.minusDays(1);
 
         // Step 1: Find all active emergency-duty rosters for current time window (including cross-midnight)
-        List<EmergencyDoctorRoster> activeDutyRosters = rosterRepository.findAvailableEmergencyRosters(currentDate, yesterday)
-                .stream()
+        List<EmergencyDoctorRoster> onDutyRosters = rosterRepository.findActiveEmergencyDutyRosters(currentDate, yesterday);
+        if (onDutyRosters == null || onDutyRosters.isEmpty()) {
+            onDutyRosters = rosterRepository.findAvailableEmergencyRosters(currentDate, yesterday);
+        }
+        List<EmergencyDoctorRoster> activeDutyRosters = onDutyRosters.stream()
                 .filter(r -> r.isActiveAt(currentDate, currentTime))
                 .filter(r -> "EMERGENCY_DUTY".equalsIgnoreCase(r.getDutyStatus()))
                 .collect(Collectors.toList());
@@ -251,6 +254,11 @@ public class EmergencyDoctorAllocationService {
 
         // Query waiting requests: URGENT priority first, then earliest requestTime (FIFO)
         List<EmergencyRequest> waitingRequests = requestRepository.findByStatusOrderByPriorityDescRequestTimeAsc("WAITING");
+        // Filter out stale waiting requests older than 24 hours so abandoned cases from previous days don't block
+        LocalDateTime cutoff = LocalDateTime.of(currentDate.minusDays(1), currentTime);
+        waitingRequests = waitingRequests.stream()
+                .filter(req -> req.getRequestTime() == null || !req.getRequestTime().isBefore(cutoff))
+                .collect(Collectors.toList());
         if (waitingRequests.isEmpty()) {
             return Optional.empty();
         }

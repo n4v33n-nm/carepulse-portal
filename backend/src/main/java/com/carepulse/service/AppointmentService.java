@@ -102,7 +102,12 @@ public class AppointmentService {
                 request.getReason()
         );
         appointment.setStatus("PENDING");
-        Appointment saved = appointmentRepository.save(appointment);
+        Appointment saved;
+        try {
+            saved = appointmentRepository.saveAndFlush(appointment);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new BadRequestException("The selected time slot (" + request.getAppointmentTime() + ") is no longer available with Dr. " + doctor.getFullName());
+        }
 
         // Empathy-aware notification message for patient
         String pref = patient.getUser().getCommunicationPreference();
@@ -307,7 +312,12 @@ public class AppointmentService {
             appointment.setReason(request.getReason());
         }
         appointment.setStatus("PENDING");
-        Appointment saved = appointmentRepository.save(appointment);
+        Appointment saved;
+        try {
+            saved = appointmentRepository.saveAndFlush(appointment);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new BadRequestException("The selected slot (" + request.getNewTime() + ") is already booked with Dr. " + doctor.getFullName());
+        }
 
         // Releasing old slot: Notify any waitlisted patients for the freed slot
         waitlistService.processWaitlistOnSlotAvailable(doctor, oldDate, oldTime);

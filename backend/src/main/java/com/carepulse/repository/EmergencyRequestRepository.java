@@ -18,6 +18,8 @@ public interface EmergencyRequestRepository extends JpaRepository<EmergencyReque
 
     List<EmergencyRequest> findByOrderByRequestTimeDesc();
 
+    List<EmergencyRequest> findByStatus(String status);
+
     List<EmergencyRequest> findByStatusOrderByPriorityDescRequestTimeAsc(String status);
 
     List<EmergencyRequest> findByStatusAndAssignedTimeBefore(String status, LocalDateTime threshold);

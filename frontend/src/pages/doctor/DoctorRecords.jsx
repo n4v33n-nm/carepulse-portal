@@ -92,6 +92,13 @@ const DoctorRecords = () => {
       await recordService.createRecord(recordData);
       setFormSuccess('Clinical record saved and patient notified.');
       fetchData();
+      setRecordData((prev) => ({
+        patientId: patients[0]?.id || '',
+        diagnosis: '',
+        symptoms: '',
+        treatment: '',
+        consultationNotes: '',
+      }));
       setTimeout(() => {
         setIsRecordModalOpen(false);
         setFormSuccess('');
@@ -113,6 +120,14 @@ const DoctorRecords = () => {
       await prescriptionService.createPrescription(presData);
       setFormSuccess('Prescription issued and patient notified.');
       fetchData();
+      setPresData((prev) => ({
+        patientId: patients[0]?.id || '',
+        medicineName: '',
+        dosage: '500mg',
+        frequency: 'Twice daily after meals',
+        duration: '14 days',
+        instructions: '',
+      }));
       setTimeout(() => {
         setIsPrescriptionModalOpen(false);
         setFormSuccess('');

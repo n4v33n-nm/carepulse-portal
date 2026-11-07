@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "doctor_availability")
+@Table(name = "doctor_availability", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_doctor_day", columnNames = {"doctor_id", "day_of_week"})
+}, indexes = {
+        @Index(name = "idx_availability_doctor", columnList = "doctor_id")
+})
 public class DoctorAvailability {
 
     @Id

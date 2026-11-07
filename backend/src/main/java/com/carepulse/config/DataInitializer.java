@@ -62,6 +62,7 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         if (userRepository.count() > 0) {
             seedEmergencyRosterIfEmpty();
+            seedDoctorAvailabilityIfMissing();
             return; // Data already seeded
         }
 
@@ -302,7 +303,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedEmergencyRosterIfEmpty() {
-        if (emergencyDoctorRosterRepository.count() > 0) {
+        LocalDate today = LocalDate.now();
+        if (emergencyDoctorRosterRepository.existsByRosterDate(today)) {
             return;
         }
 
@@ -311,9 +313,8 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
-        System.out.println("Seeding Emergency Doctor Duty Roster demo data...");
+        System.out.println("Seeding Emergency Doctor Duty Roster for today (" + today + ")...");
 
-        LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
 
         Doctor docJenkins = doctors.stream().filter(d -> d.getFullName().contains("Jenkins")).findFirst().orElse(doctors.get(0));
@@ -398,5 +399,29 @@ public class DataInitializer implements CommandLineRunner {
         ));
 
         auditLogRepository.save(new AuditLog("admin@carepulse.com", "EMERGENCY_ROSTER_INITIALIZED", "EmergencyRoster", "Default emergency duty roster seeded for today and tomorrow"));
+    }
+
+    private void seedDoctorAvailabilityIfMissing() {
+        List<Doctor> doctors = doctorRepository.findAll();
+        for (Doctor doc : doctors) {
+            List<DoctorAvailability> existing = availabilityRepository.findByDoctor(doc);
+            if (existing.isEmpty()) {
+                log.info("Seeding default weekly availability for doctor: {}", doc.getFullName());
+                for (String day : List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")) {
+                    DoctorAvailability da = new DoctorAvailability(
+                            doc, day, LocalTime.of(9, 0), LocalTime.of(17, 0),
+                            LocalTime.of(13, 0), LocalTime.of(14, 0), 30
+                    );
+                    da.setAvailable(true);
+                    availabilityRepository.save(da);
+                }
+                DoctorAvailability sunday = new DoctorAvailability(
+                        doc, "SUNDAY", LocalTime.of(9, 0), LocalTime.of(17, 0),
+                        null, null, 30
+                );
+                sunday.setAvailable(false);
+                availabilityRepository.save(sunday);
+            }
+        }
     }
 }
