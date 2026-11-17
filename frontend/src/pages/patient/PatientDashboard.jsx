@@ -195,15 +195,14 @@ const PatientDashboard = () => {
               </p>
             </div>
           </div>
-          <button
-            type="button"
+          <Link
+            to="/patient/emergency"
             className="btn btn-emergency"
-            onClick={() => setShowEmergencyModal(true)}
-            style={{ padding: '12px 22px', fontSize: '0.9375rem' }}
+            style={{ padding: '12px 22px', fontSize: '0.9375rem', textDecoration: 'none' }}
           >
             <HeartPulse size={18} />
             Emergency Assistance
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -1042,13 +1041,13 @@ const PatientDashboard = () => {
           <span className="card-title">
             <Siren size={20} style={{ color: '#e11d48' }} /> Emergency Assistance History
           </span>
-          <button
-            type="button"
+          <Link
+            to="/patient/emergency"
             className="btn btn-emergency btn-sm"
-            onClick={() => setShowEmergencyModal(true)}
+            style={{ textDecoration: 'none' }}
           >
             <HeartPulse size={14} /> New Request
-          </button>
+          </Link>
         </div>
 
         {emergencyRequests.length === 0 ? (

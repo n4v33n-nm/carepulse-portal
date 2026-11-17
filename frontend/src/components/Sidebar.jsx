@@ -72,6 +72,10 @@ const Sidebar = () => {
               <MessageSquare size={18} />
               <span>DoctorConnect</span>
             </NavLink>
+            <NavLink to="/patient/emergency" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} style={{ color: '#e11d48', fontWeight: 700 }}>
+              <Siren size={18} />
+              <span>Emergency Assistance</span>
+            </NavLink>
             <NavLink to="/patient/caregivers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Users size={18} />
               <span>Caregiver Access</span>
