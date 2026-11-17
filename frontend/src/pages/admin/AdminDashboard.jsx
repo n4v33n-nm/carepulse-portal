@@ -646,7 +646,6 @@ const AdminDashboard = () => {
                   <th>User ID</th>
                   <th>Email</th>
                   <th>Role</th>
-                  <th>Communication Tone</th>
                   <th>Status</th>
                   <th>Created At</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -660,7 +659,6 @@ const AdminDashboard = () => {
                     <td>
                       <span className="badge badge-role">{u.role}</span>
                     </td>
-                    <td>{u.communicationPreference || 'SUPPORTIVE'}</td>
                     <td>
                       <span className={`badge ${u.active ? 'badge-confirmed' : 'badge-cancelled'}`}>
                         {u.active ? 'Active' : 'Disabled'}

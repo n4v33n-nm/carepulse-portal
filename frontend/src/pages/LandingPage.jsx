@@ -216,7 +216,7 @@ const LandingPage = () => {
               { icon: <Pill />, title: 'Digital Prescriptions', desc: 'Structured medical cards with dosage, frequency, course duration, and pharmacist/patient follow-up notes.' },
               { icon: <MessageSquare />, title: 'DoctorConnect Communication', desc: 'Direct, secure communication channel connecting patients with their appointed physicians for health questions and clinical guidance.' },
               { icon: <Users />, title: 'Caregiver Delegations', desc: 'Secure proxy permissions allowing family members to view appointments or records while patient retains revoke controls.' },
-              { icon: <ShieldCheck />, title: 'Empathy Engine', desc: 'Personalized communication preference (Simple, Supportive, Professional) adapting notification and assistance tone.' },
+              { icon: <ShieldCheck />, title: 'Secure Medical Reports', desc: 'Encrypted document management for clinical lab reports, blood tests, and high-resolution MRI and CT scans.' },
             ].map((f, i) => (
               <div key={i} className="card" style={{ padding: '24px' }}>
                 <div style={{ color: 'var(--primary-600)', marginBottom: '16px' }}>{f.icon}</div>

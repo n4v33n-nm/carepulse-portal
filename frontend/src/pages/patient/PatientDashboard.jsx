@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { appointmentService, recordService, prescriptionService, notificationService, emergencyService, doctorLeaveService, reportService } from '../../services/api';
-import EmergencyAssistanceModal from '../../components/EmergencyAssistanceModal';
 import Modal from '../../components/Modal';
 
 const PatientDashboard = () => {
@@ -42,7 +41,6 @@ const PatientDashboard = () => {
   const [pendingReassignments, setPendingReassignments] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
   // Phase 4 & 5: Patient Medical History States
   const [historyTab, setHistoryTab] = useState('ALL'); // 'ALL' | 'CONSULTATIONS' | 'PRESCRIPTIONS' | 'APPOINTMENTS' | 'REPORTS'
@@ -83,22 +81,11 @@ const PatientDashboard = () => {
     (a) => a.status === 'CONFIRMED' || a.status === 'PENDING'
   );
 
-  // Empathy Engine guidance message based on user preference
-  const getEmpathyMessage = () => {
-    const tone = user?.communicationPreference || 'SUPPORTIVE';
-    if (tone === 'SIMPLE') {
-      return upcomingAppointment
-        ? `Next visit: ${upcomingAppointment.appointmentDate} at ${upcomingAppointment.appointmentTime} with Dr. ${upcomingAppointment.doctor.fullName}.`
-        : 'You have no scheduled visits today.';
-    } else if (tone === 'PROFESSIONAL') {
-      return upcomingAppointment
-        ? `Scheduled Consultation: Dr. ${upcomingAppointment.doctor.fullName} (${upcomingAppointment.doctor.specialization}) on ${upcomingAppointment.appointmentDate} at ${upcomingAppointment.appointmentTime}. Status: ${upcomingAppointment.status}.`
-        : 'Clinical Schedule: All consultation queues are currently clear.';
-    } else {
-      return upcomingAppointment
-        ? `We're keeping you on track! You have an upcoming consultation with Dr. ${upcomingAppointment.doctor.fullName} on ${upcomingAppointment.appointmentDate} at ${upcomingAppointment.appointmentTime}. Remember to have any questions ready!`
-        : "Welcome back! Your health timeline is completely up to date. You can consult with a specialist or message your doctor via DoctorConnect anytime.";
-    }
+  // Welcome guidance message
+  const getWelcomeMessage = () => {
+    return upcomingAppointment
+      ? `You have an upcoming consultation with Dr. ${upcomingAppointment.doctor.fullName} (${upcomingAppointment.doctor.specialization}) on ${upcomingAppointment.appointmentDate} at ${upcomingAppointment.appointmentTime}.`
+      : "Welcome back! Your health timeline is completely up to date. You can consult with a specialist or message your doctor via DoctorConnect anytime.";
   };
 
   return (
@@ -124,7 +111,7 @@ const PatientDashboard = () => {
             Welcome back, {user?.fullName || 'Patient'}!
           </h2>
           <p style={{ maxWidth: '720px', fontSize: '1rem', opacity: 0.95, lineHeight: 1.5 }}>
-            {getEmpathyMessage()}
+            {getWelcomeMessage()}
           </p>
         </div>
       </div>
@@ -1113,13 +1100,6 @@ const PatientDashboard = () => {
           </div>
         )}
       </div>
-
-      {/* Emergency Assistance Modal */}
-      <EmergencyAssistanceModal
-        isOpen={showEmergencyModal}
-        onClose={() => setShowEmergencyModal(false)}
-        onSuccess={() => fetchDashboardData()}
-      />
     </div>
   );
 };
